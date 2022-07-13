@@ -1,13 +1,33 @@
-# Artificial Neural Networks : CTRNN Project
+# Artificial Neural Networks : Epidemic Control Project
 
-An introduction to continuous time neural networks, their pros-and-cons and an application with reinforcement learning.
+Building a reinforcement learning environment for training epidemic mitigation policy. (Presumably using Q-learning.)
 
-The project would be split into three parts: 
+## Model design:
+Model the epidemic dynamics on a graph representing cities and social-groups with the following per-node dynamics (for city $i \in [m]$ for $m$ cities):
 
-1. Given data from a dynamical system, use a continous-time model to derive a model of the system's dynamics (which are unknown) [I was thinking a rocket landing or docking situation, alternatively one could do covid propagation on a graph, but if there is a more Neurosciency topic you would like why not]
-2. Exploit that model together with continuous RL to train a policy to solve a control problem using the model that we derived using the data [train a policy that lands the rocket]
-3. Test the results on the actual dynamical system using [evaluate the results]
+$\begin{cases}
+\dot{s}_i = \gamma_i r_i - \alpha_i s_i(i_i + \sum_{j\neq i} \tau_j i_j )\\
+\dot{i} = \alpha_i s_i(i_i + \sum_{j\neq i} \tau_j i_j ) - (\beta_i + \zeta_i) i_i\\
+\dot{r} = \beta_i i_i - \gamma_i r_i\\
+\dot{d} = \zeta_i i_i \\
+\end{cases}$
 
-So the student would be given a black box dynamical system together with a dataset of trajectories of the rocket, and would have to implement a continuous time model to model them (I was thinking of a neural-ode model). 
+where the $_i$ subscript denotes the $i$-th city, the variables are the following:
+- $s_i$ the proportion of suceptible population
+- $i_i$ the proportion of infected population
+- $r_i$ the proportion of recovered population
+- $d_i$ the proportion of dead population
 
-Then using that model the student would then implement either PPO or DDPG and fit a model on that problem (I think here one would have to use a MLP as training continuous time models locally is really hard).
+the parameters are the following:
+- $\alpha_i$ is the transmission rate
+- $\beta_i$ is the recovery rate
+- $\zeta_i$ is the death rate
+- $\gamma_i$ is the immunity-loss rate
+
+Since $s_i +i_i + r_i +d_i = 1$ the model is a $3\cdot m$-th order model.
+
+
+## Todos :
+- Write a dynamics class that implements the simulation
+- Write a yaml parser that creates instances of the dynamics class from files
+- Write a visualization library
