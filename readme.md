@@ -1,6 +1,6 @@
 # Artificial Neural Networks : Epidemic Control Project
 
-Building a reinforcement learning environment for training epidemic mitigation policy. (Presumably using Q-learning.)
+Building a reinforcement learning environment for training epidemic mitigation policies. (Presumably using Q-learning.)
 
 ## Model design:
 Model the epidemic dynamics on a graph representing cities and social-groups with the following per-node dynamics (for city $i \in [m]$ for $m$ cities):
@@ -13,7 +13,7 @@ $\begin{cases}
 \end{cases}$
 
 where the $_i$ subscript denotes the $i$-th city, the variables are the following:
-- $s_i$ the proportion of suceptible population
+- $s_i$ the proportion of susceptible population
 - $i_i$ the proportion of infected population
 - $r_i$ the proportion of recovered population
 - $d_i$ the proportion of dead population
