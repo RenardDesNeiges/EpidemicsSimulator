@@ -1,6 +1,15 @@
-alpha: 0.8
-beta: 0.2
-gamma: 0.03
+alpha: 0.1
+var_alpha: 0.5
+beta: 0.05
+var_beta: 0.01
+gamma: 0.0001
+var_gamma: 0.00005
+zeta: 0.05
+var_zeta: 0.002
+tau_0: 0.01
+var_tau_0: 0.01
+dt: 1
+confinement_effectiveness: 0.05
 cities:
   Lausanne: 
     pop : 295000
@@ -22,6 +31,10 @@ cities:
     pop : 830000
     lat : 7.60098486359839
     lon : 47.55666918341509
+  Bern: 
+    pop : 133115
+    lat : 7.444922268565087
+    lon : 46.95192252065917
   Lücern: 
     pop : 82000
     lat : 8.271663727816637
@@ -41,10 +54,14 @@ roads:
     - Sion
   - - Lausanne
     - Neuchâtel
+  - - Neuchâtel
+    - Bern
   - - Lausanne
-    - Lücern
-  - - Lausanne
+    - Bern
+  - - Bern
     - Zürich
+  - - Bern
+    - Lücern 
   - - Neuchâtel
     - Geneva
   - - Lücern

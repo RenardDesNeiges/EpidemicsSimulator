@@ -29,5 +29,5 @@ Since $s_i +i_i + r_i +d_i = 1$ the model is a $3\cdot m$-th order model.
 
 ## Todos :
 - Write a dynamics class that implements the simulation
-- Write a yaml parser that creates instances of the dynamics class from files
 - Write a visualization library
+<!-- - Write a yaml parser that creates instances of the dynamics class from files  -->
