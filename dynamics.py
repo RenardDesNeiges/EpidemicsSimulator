@@ -264,7 +264,7 @@ class ModelDynamics():
             
             # vaccination
             stoch_mu = self.vaccinate/self.map.nodes[c]['pop'] 
-            new_vaccinated = np.fmin(float(stoch_mu*s), float(stoch_mu))
+            new_vaccinated = np.fmax(np.fmin(float(stoch_mu*s), float(stoch_mu)),0)
             
             # exposure to infection flow
             stoch_eta = np.max([np.random.normal(self.eta,self.eta),0])

@@ -10,14 +10,14 @@ var_gamma: 0.0000005
 zeta: 0.01
 var_zeta: 0.0002
 tau_0: 0.01
-var_tau_0: 0.01
+var_tau_0: 0.0001
 dt: 20
 # action parameters
 confinement_effectiveness: 0.05
-isolation_effectiveness: 0.05
+isolation_effectiveness: 0.001
 extra_hospital_effectiveness: 0.5
 env_step_lenght: 21
-vaccination_effectiveness: 5000
+vaccination_effectiveness: 20
 # graph description
 cities:
   Lausanne: 
