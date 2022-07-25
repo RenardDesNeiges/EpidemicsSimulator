@@ -1,14 +1,16 @@
-alpha: 0.1
-var_alpha: 0.5
-beta: 0.05
+alpha: 0.05
+var_alpha: 0.005
+eta: 0.01
+var_eta: 0.0001
+beta: 0.01
 var_beta: 0.01
-gamma: 0.0001
-var_gamma: 0.00005
-zeta: 0.05
-var_zeta: 0.002
+gamma: 0.000005
+var_gamma: 0.0000005
+zeta: 0.01
+var_zeta: 0.0002
 tau_0: 0.01
 var_tau_0: 0.01
-dt: 1
+dt: 20
 confinement_effectiveness: 0.05
 cities:
   Lausanne: 

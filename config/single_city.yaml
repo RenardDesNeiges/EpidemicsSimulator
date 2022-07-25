@@ -1,6 +1,8 @@
 # model parameters
 alpha: 1
 var_alpha: 0.1
+eta: 0.1
+var_eta: 0.01
 beta: 0.1
 var_beta: 0.01
 gamma: 0.01

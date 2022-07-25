@@ -26,6 +26,8 @@ class ModelDynamics():
             self.var_alpha = _params['var_alpha']
             self.beta = _params['beta']
             self.var_beta = _params['var_beta']
+            self.eta = _params['eta']
+            self.var_eta = _params['var_eta']
             self.gamma = _params['gamma']
             self.var_gamma = _params['var_gamma']
             self.zeta = _params['zeta']
@@ -57,6 +59,7 @@ class ModelDynamics():
     
         # initializing the variables        
         nx.set_node_attributes(self.map, 1., "s")   
+        nx.set_node_attributes(self.map, 0., "e")   
         nx.set_node_attributes(self.map, 0., "i")   
         nx.set_node_attributes(self.map, 0., "r")   
         nx.set_node_attributes(self.map, 0., "d")   
@@ -97,6 +100,7 @@ class ModelDynamics():
     def epidemic_parameters(self,):
         cities = {}
         suceptible_total = 0
+        exposed_total = 0
         infected_total = 0
         recovered_total = 0
         dead_total = 0
@@ -105,6 +109,8 @@ class ModelDynamics():
         for c in self.cities:
             suceptible = int(np.floor(self.map.nodes[c]['s'] * self.map.nodes[c]['pop']))
             suceptible_total += suceptible
+            exposed = int(np.floor(self.map.nodes[c]['e'] * self.map.nodes[c]['pop']))
+            exposed_total += exposed
             infected = int(np.floor(self.map.nodes[c]['i'] * self.map.nodes[c]['pop']))
             infected_total += infected
             recovered = int(np.floor(self.map.nodes[c]['r'] * self.map.nodes[c]['pop']))
@@ -115,6 +121,7 @@ class ModelDynamics():
             
             city = {
                 'suceptible' : suceptible,
+                'exposed' : exposed,
                 'infected' : infected,
                 'recovered' : recovered,
                 'dead' : dead,
@@ -124,6 +131,7 @@ class ModelDynamics():
         
         total = {
             'suceptible' : suceptible_total,
+            'exposed' : exposed_total,
             'infected' : infected_total,
             'recovered' : recovered_total,
             'dead' : dead_total,
@@ -149,7 +157,7 @@ class ModelDynamics():
         
         start_cities = rd.choices(self.cities, k = sources)
         for c in start_cities:
-            self.map.nodes[c]['i'] += prop
+            self.map.nodes[c]['e'] += prop
             self.map.nodes[c]['s'] -= prop
     
     """ Step forward in the epdidemic
@@ -164,6 +172,7 @@ class ModelDynamics():
         
         
         ds = {}
+        de = {}
         di = {}
         dr = {}
         dd = {}
@@ -172,6 +181,7 @@ class ModelDynamics():
             
             # query the variables from the graph
             s = self.map.nodes[c]['s']
+            e = self.map.nodes[c]['e']
             i = self.map.nodes[c]['i']
             r = self.map.nodes[c]['r']
             d = self.map.nodes[c]['d']
@@ -182,7 +192,9 @@ class ModelDynamics():
             stoch_alpha = np.max([np.random.normal(self.alpha,self.var_alpha),0])
             if confine:
                 stoch_alpha = self.confinement_effectiveness*stoch_alpha
-            new_infected = stoch_alpha * (s * i  + sum_term)
+            new_exposed = stoch_alpha * (s * i  + sum_term)
+            stoch_eta = np.max([np.random.normal(self.eta,self.eta),0])
+            new_infected = stoch_eta * e
             stoch_beta = np.max([np.random.normal(self.beta,self.var_beta),0])
             new_recovered = stoch_beta * i
             stoch_zeta = np.max([np.random.normal(self.zeta,self.var_zeta),0])
@@ -191,7 +203,8 @@ class ModelDynamics():
             new_suceptible = stoch_gamma * r
 
             # compute the derivatives
-            ds[c] = new_suceptible - new_infected
+            ds[c] = new_suceptible - new_exposed
+            de[c] = new_exposed - new_infected
             di[c] = new_infected - new_recovered - new_deaths
             dr[c] = new_recovered - new_suceptible
             dd[c] = new_deaths
@@ -199,6 +212,7 @@ class ModelDynamics():
         for c in self.cities: 
             # Euler integration step
             self.map.nodes[c]['s'] += ds[c]*self.dt
+            self.map.nodes[c]['e'] += de[c]*self.dt
             self.map.nodes[c]['i'] += di[c]*self.dt
             self.map.nodes[c]['r'] += dr[c]*self.dt
             self.map.nodes[c]['d'] += dd[c]*self.dt
