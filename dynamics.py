@@ -36,7 +36,12 @@ class ModelDynamics():
             self.var_tau_0 = _params['var_tau_0']
             self.dt = _params['dt']
             
+            # action parameters
             self.confinement_effectiveness = _params['confinement_effectiveness']
+            self.isolation_effectiveness = _params['isolation_effectiveness']
+            self.extra_hospital_effectiveness = _params['extra_hospital_effectiveness']
+            self.vaccination_effectiveness = _params['vaccination_effectiveness']
+            self.env_step_length = _params['env_step_lenght']
             
             # cities and roads lists
             self.cities = list(_params['cities'].keys())
@@ -64,7 +69,11 @@ class ModelDynamics():
         nx.set_node_attributes(self.map, 0., "r")   
         nx.set_node_attributes(self.map, 0., "d")   
         
-
+        # initializing the control parameters
+        self.c_confined = {c:1 for c in self.cities}
+        self.c_isolated = {c:1 for c in self.cities}
+        self.extra_hospital_beds = {c:1 for c in self.cities}
+        self.vaccinate = 0
         
         s = np.sum([self.map.nodes[n]['pop'] for n in self.map.nodes()])
 
@@ -160,7 +169,66 @@ class ModelDynamics():
             self.map.nodes[c]['e'] += prop
             self.map.nodes[c]['s'] -= prop
     
-    """ Step forward in the epdidemic
+    """ Perform one environment step
+        
+        Parameters : 
+            act [dict] : a dict containing actions to be performed this turn
+                    the dict must be structured as 
+                    confinement :   city,True/False
+                    isolation :     city,True/False
+                    hospital :      city,True/False
+                    vaccination :   True/False
+
+        Returns : 
+            obs [dict] : a dict containing observation from this step
+                    the dict is structured as 
+                    total   :   list(dict(measurements)) (over 7 days)
+                    city    :   dict(list(dict(measurements))) (over 7 days, per city)
+                    pop    :    dict(int) initial per-city population (to allow normalization)
+
+    """
+    def step(self, act):
+        
+        # change the model parameters according to the actions
+        self.c_confined = {c:(self.confinement_effectiveness if v else 1) 
+                           for (c,v) in act['confinement'].items()}
+        self.c_isolated = {c:(self.isolation_effectiveness if v else 1) 
+                           for (c,v) in act['isolation'].items()}
+        self.vaccinate = self.vaccination_effectiveness if act['vaccinate'] else 0
+        self.extra_hospital_beds = {c:(self.extra_hospital_effectiveness if v else 1) 
+                                    for (c,v) in act['hospital'].items()}
+        _total_history = []
+        _city_history = []
+        # print step through a week of simulation to produce one environment step
+        for i in range(self.env_step_length):
+            self.step_dyn()
+            total, cities = self.epidemic_parameters()
+            _total_history.append(total)
+            _city_history.append(cities)
+        
+        # output observations
+        _total_infected = [t['infected'] for t in _total_history][0::3]
+        _total_dead = [t['dead'] for t in _total_history][0::3]
+        _total = {
+            'infected' :    _total_infected,
+            'dead' :        _total_dead,
+        }
+        _city_infected = {c:([t[c]['infected'] for t in _city_history][0::3]) for c in self.cities}
+        _city_dead = {c:([t[c]['dead'] for t in _city_history][0::3]) for c in self.cities}
+        _city = {
+            'city' :    _city_infected,
+            'dead' :        _city_dead,
+        }
+        _pop = {c:self.map.nodes[c]['pop'] for c in self.cities}
+        
+        obs = {
+            'total' :   _total,
+            'city'  :   _city,
+            'pop'   :   _pop
+        }
+        return obs
+    
+    """ Step forward in the epidemic dynamics
         
         Parameters : 
             None
@@ -168,9 +236,7 @@ class ModelDynamics():
         Returns : 
             None
     """
-    def step(self, confine = False):
-        
-        
+    def step_dyn(self):
         ds = {}
         de = {}
         di = {}
@@ -186,27 +252,41 @@ class ModelDynamics():
             r = self.map.nodes[c]['r']
             d = self.map.nodes[c]['d']
             
-            # compute the terms
-            stoch_t0 = np.max([np.random.normal(self.tau_0,self.var_tau_0),0])
-            sum_term = stoch_t0 * np.sum([self.map.nodes[a]['i']*self.map.edges[(a,c)]['tau'] for a in nx.neighbors(self.map,c)])
-            stoch_alpha = np.max([np.random.normal(self.alpha,self.var_alpha),0])
-            if confine:
-                stoch_alpha = self.confinement_effectiveness*stoch_alpha
+            # compute the derivative terms
+            
+            # city - to city contagion
+            stoch_t0 = np.max([np.random.normal(self.tau_0,self.var_tau_0),0]) 
+            sum_term = self.c_isolated[c]*stoch_t0 * np.sum([self.map.nodes[a]['i']*self.map.edges[(a,c)]['tau']*self.c_isolated[a] for a in nx.neighbors(self.map,c)])
+            
+            # incidence rate
+            stoch_alpha = np.max([np.random.normal(self.alpha*self.c_confined[c],self.var_alpha),0]) 
             new_exposed = stoch_alpha * (s * i  + sum_term)
+            
+            # vaccination
+            stoch_mu = self.vaccinate/self.map.nodes[c]['pop'] 
+            new_vaccinated = np.fmin(float(stoch_mu*s), float(stoch_mu))
+            
+            # exposure to infection flow
             stoch_eta = np.max([np.random.normal(self.eta,self.eta),0])
             new_infected = stoch_eta * e
+            
+            # exposure to recovered flow
             stoch_beta = np.max([np.random.normal(self.beta,self.var_beta),0])
             new_recovered = stoch_beta * i
-            stoch_zeta = np.max([np.random.normal(self.zeta,self.var_zeta),0])
-            new_deaths = stoch_zeta * i * i
+            
+            # death rate
+            stoch_zeta = np.max([np.random.normal(self.zeta,self.var_zeta),0]) 
+            new_deaths = stoch_zeta * i * i * self.extra_hospital_beds[c]
+            
+            # loss of immunity rate
             stoch_gamma = np.max([np.random.normal(self.gamma,self.var_gamma),0])
-            new_suceptible = stoch_gamma * r
+            new_suceptible = stoch_gamma * r  
 
             # compute the derivatives
-            ds[c] = new_suceptible - new_exposed
+            ds[c] = new_suceptible - new_exposed - new_vaccinated
             de[c] = new_exposed - new_infected
             di[c] = new_infected - new_recovered - new_deaths
-            dr[c] = new_recovered - new_suceptible
+            dr[c] = new_recovered - new_suceptible + new_vaccinated
             dd[c] = new_deaths
             
         for c in self.cities: 
@@ -216,14 +296,3 @@ class ModelDynamics():
             self.map.nodes[c]['i'] += di[c]*self.dt
             self.map.nodes[c]['r'] += dr[c]*self.dt
             self.map.nodes[c]['d'] += dd[c]*self.dt
-            
-    
-# dyn = ModelDynamics('./config/switzerland.yaml')
-# dyn.start_epidemic()
-# total_history = []
-# city_history = []
-# for i in range(3000):
-#     dyn.step()
-#     total, cities = dyn.epidemic_parameters()
-#     total_history.append(total)
-#     city_history.append(cities)
