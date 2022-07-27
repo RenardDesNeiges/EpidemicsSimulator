@@ -2,7 +2,12 @@ import yaml
 import networkx as nx
 import numpy as np
 import random as rd
-import matplotlib.pyplot as plt
+
+""" ModelDynamics class
+    Handles the epidemic modeling and the parsing of a yaml configuration file.
+    This class doesn't "know" that it's an RL environment, this part is handled 
+    by the wrapper class EpidemicEnv which handles the OpenAI gym part of the task.
+"""
 
 class ModelDynamics():
     
@@ -11,14 +16,14 @@ class ModelDynamics():
         parameters from a source yaml file
         
         Parameters : 
-            yaml_source [string] : path to yaml initialization file
+            source_file [string] : path to yaml initialization file
 
         Returns : 
             None
     """
-    def __init__(self, yaml_source):
+    def __init__(self, source_file):
         # loading the parameters from the yaml file
-        doc = open(yaml_source, 'r')    
+        doc = open(source_file, 'r')    
         _params = yaml.safe_load(doc)
         try:    
             # simulation parameters
@@ -42,9 +47,11 @@ class ModelDynamics():
             self.extra_hospital_effectiveness = _params['extra_hospital_effectiveness']
             self.vaccination_effectiveness = _params['vaccination_effectiveness']
             self.env_step_length = _params['env_step_lenght']
-            
+            self.srate = _params['srate']
+                        
             # cities and roads lists
             self.cities = list(_params['cities'].keys())
+            self.n_cities = len(self.cities)
             if _params['roads'] is not None:
                 self.roads = _params['roads']
             else:
@@ -59,9 +66,32 @@ class ModelDynamics():
             for c in self.cities:
                 self.map.nodes[c]['pop'] = _params['cities'][c]['pop'] 
                 self.pos_map[c] = [_params['cities'][c]['lat'],_params['cities'][c]['lon']]
+                
+            self.NULL_ACTION = { 'confinement': {c:False for c in self.cities},
+                'isolation': {c:False for c in self.cities},
+                'hospital': {c:False for c in self.cities},
+                'vaccinate': False,
+                }
+
         except:
             raise("Invalid YAML scenario file")
     
+        self.total_pop = np.sum([self.map.nodes[n]['pop'] for n in self.map.nodes()])
+        for e in self.roads:
+            tau = 10*(self.map.nodes[e[0]]['pop'] * self.map.nodes[e[1]]['pop'])/self.total_pop**2
+            self.map.edges[e]['tau'] = tau
+            
+        self.reset()
+        
+    """ Resets the dynamical system variables and control parameters
+        
+        Parameters : 
+            None
+
+        Returns : 
+            None
+    """
+    def reset(self):
         # initializing the variables        
         nx.set_node_attributes(self.map, 1., "s")   
         nx.set_node_attributes(self.map, 0., "e")   
@@ -74,12 +104,7 @@ class ModelDynamics():
         self.c_isolated = {c:1 for c in self.cities}
         self.extra_hospital_beds = {c:1 for c in self.cities}
         self.vaccinate = 0
-        
-        s = np.sum([self.map.nodes[n]['pop'] for n in self.map.nodes()])
 
-        for e in self.roads:
-            tau = 10*(self.map.nodes[e[0]]['pop'] * self.map.nodes[e[1]]['pop'])/s**2
-            self.map.edges[e]['tau'] = tau
     
     """ Draws the map on which the epidemic is simulated
         
@@ -200,23 +225,23 @@ class ModelDynamics():
         _total_history = []
         _city_history = []
         # print step through a week of simulation to produce one environment step
-        for i in range(self.env_step_length):
+        for i in range(self.env_step_length*self.srate):
             self.step_dyn()
             total, cities = self.epidemic_parameters()
             _total_history.append(total)
             _city_history.append(cities)
         
         # output observations
-        _total_infected = [t['infected'] for t in _total_history][0::3]
-        _total_dead = [t['dead'] for t in _total_history][0::3]
+        _total_infected = [t['infected'] for t in _total_history][0::self.srate]
+        _total_dead = [t['dead'] for t in _total_history][0::self.srate]
         _total = {
             'infected' :    _total_infected,
             'dead' :        _total_dead,
         }
-        _city_infected = {c:([t[c]['infected'] for t in _city_history][0::3]) for c in self.cities}
-        _city_dead = {c:([t[c]['dead'] for t in _city_history][0::3]) for c in self.cities}
+        _city_infected = {c:([t[c]['infected'] for t in _city_history][0::self.srate]) for c in self.cities}
+        _city_dead = {c:([t[c]['dead'] for t in _city_history][0::self.srate]) for c in self.cities}
         _city = {
-            'city' :    _city_infected,
+            'infected' :    _city_infected,
             'dead' :        _city_dead,
         }
         _pop = {c:self.map.nodes[c]['pop'] for c in self.cities}

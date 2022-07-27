@@ -17,7 +17,8 @@ confinement_effectiveness: 0.05
 isolation_effectiveness: 0.05
 extra_hospital_effectiveness: 0.5
 vaccination_effectiveness: 5000
-env_step_lenght: 21
+env_step_lenght: 7
+srate: 3
 # map
 cities:
   Lausanne: 

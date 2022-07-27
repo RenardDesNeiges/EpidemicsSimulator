@@ -16,7 +16,8 @@ dt: 20
 confinement_effectiveness: 0.05
 isolation_effectiveness: 0.001
 extra_hospital_effectiveness: 0.5
-env_step_lenght: 21
+env_step_lenght: 7
+srate: 3
 vaccination_effectiveness: 20
 # graph description
 cities:
