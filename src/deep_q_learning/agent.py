@@ -38,7 +38,8 @@ class Agent():
 
         self.env = env
         
-        self.model = model()
+        self.model = model(in_dim=len(env.observation_space.sample().flatten()),
+                           out_dim=env.action_space.sample().shape[0])
         self.targetModel = model()
         
         self.loss = loss
@@ -57,7 +58,7 @@ class Agent():
         self.lr = lr
     
     def load_model(self, savepath):
-        torch.save(self.DQNet.state_dict(),savepath)
+        torch.save(self.model.state_dict(),savepath)
         self.model.load_state_dict(torch.load(savepath))
     
     def save_model(self, savepath):
@@ -96,7 +97,7 @@ class Agent():
         expected_state_action_values = (next_state_values.unsqueeze(1) * self.gamma) + reward_batch
 
         # Compute Huber loss
-        criterion = nn.HuberLoss()
+        criterion = nn.MultiLabelSoftMarginLoss()
         loss = criterion(state_action_values, expected_state_action_values)
 
         # Optimize the model
@@ -108,17 +109,13 @@ class Agent():
         
         return np.double(loss)
     
-    @staticmethod
-    def obs2vec(obs):
-        return obs #TODO implement that
-    
     def act(self, obs):
-        x = self.obs2vec(obs)
+        x = torch.Tensor(obs)
         
         sample = random.random()
         if sample > self.epsilon:
             with torch.no_grad():
                 action_distribution = self.model(x)
-                return int(action_distribution.argmax())
+                return torch.round(action_distribution.sigmoid())
         else:
-            return random.randrange(self.n_actions)
+            return torch.Tensor(self.env.action_space.sample()).unsqueeze(0)

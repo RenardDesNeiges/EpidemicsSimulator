@@ -1,4 +1,5 @@
 import gym
+import torch
 from gym import spaces
 import numpy as np
 from epidemic_env.dynamics import ModelDynamics
@@ -26,6 +27,8 @@ class EpidemicEnv(gym.Env):
         #                                 = 2 x N_CITIES x 7
         # note that values are normalized between 0 and 1
         self.observation_space = spaces.Box(low=0, high=1, shape=(2, self.dyn.n_cities, self.dyn.env_step_length), dtype=np.float16)
+        self.reward = torch.Tensor([0]).unsqueeze(0)
+        self.reset()
     
     # Compute a reward
     def compute_reward(self, act_dict, obs_dict):
@@ -40,25 +43,25 @@ class EpidemicEnv(gym.Env):
             np.array([int(e) for (_,e) in act_dict['hospital'].items()]), 
             np.array([float(e) for (_,e) in obs_dict['pop'].items()]))/self.dyn.total_pop
         vaccination_penality = 500* int(act_dict['vaccinate'])
-        return 2000 - dead_penality - confinement_penality - isolation_penality - hospital_penality - vaccination_penality
+        return torch.Tensor([2000 - dead_penality - confinement_penality - isolation_penality - hospital_penality - vaccination_penality]).unsqueeze(0)
     
     # converts a vector to a dictionary
     def vec2dict(self, act):
         i = 0
         _act = self.dyn.NULL_ACTION
         for c in self.dyn.cities:
-            _act['confinement'][c] = bool(act[0:self.dyn.n_cities][i])
-            _act['isolation'][c] = bool(act[self.dyn.n_cities:2*self.dyn.n_cities][i])
-            _act['hospital'][c] = bool(act[2*self.dyn.n_cities:3*self.dyn.n_cities][i])
+            _act['confinement'][c] = bool(act[0,0:self.dyn.n_cities][i])
+            _act['isolation'][c] = bool(act[0,self.dyn.n_cities:2*self.dyn.n_cities][i])
+            _act['hospital'][c] = bool(act[0,2*self.dyn.n_cities:3*self.dyn.n_cities][i])
             i+=1
-        _act['vaccinate'] = bool(act[3*self.dyn.n_cities])
+        _act['vaccinate'] = bool(act[0,3*self.dyn.n_cities])
         return _act
     
     # converts a dictionary of observations to a normalized observation vector
     def dict2vec(self, obs):
         infected = np.array([np.array(obs['city']['infected'][c])/obs['pop'][c] for c in self.dyn.cities])
         dead = np.array([np.array(obs['city']['dead'][c])/obs['pop'][c] for c in self.dyn.cities])
-        return np.stack((infected,dead))
+        return torch.Tensor(np.stack((infected,dead))).unsqueeze(0)
 
     # Execute one time step within the environment
     def step(self, action):
@@ -69,11 +72,11 @@ class EpidemicEnv(gym.Env):
         _obs_dict = self.dyn.step(_act_dict)
         
         obs = self.dict2vec(_obs_dict)
-        reward = self.compute_reward(_act_dict, _obs_dict)
-        self.total_reward += reward
+        self.reward = self.compute_reward(_act_dict, _obs_dict)
+        self.total_reward += self.reward
         done = self.current_step >= self.ep_len
         
-        return obs, reward, done, {'parameters':self.dyn.epidemic_parameters()}
+        return obs, self.reward, done, {'parameters':self.dyn.epidemic_parameters()}
 
     # Reset the state of the environment to an initial state
     def reset(self, seed = None):
@@ -86,8 +89,11 @@ class EpidemicEnv(gym.Env):
             self.dyn.start_epidemic(seed)
             
         _obs = self.dyn.step(self.dyn.NULL_ACTION)
-        return self.dict2vec(_obs)
-        
+        self.last_obs = self.dict2vec(_obs)
+        return self.observe()
+    
+    def observe(self,):
+        return self.last_obs, self.reward, (self.current_step >= self.ep_len), {'parameters':self.dyn.epidemic_parameters()}
 
     # Render the environment to the screen 
     def render(self, mode='human', close=False):
