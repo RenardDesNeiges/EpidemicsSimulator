@@ -1,5 +1,6 @@
 from epidemic_env.epidemic_env import EpidemicEnv
-from train import Trainer
+from agent import Agent
+from model import DQN
 
 DEFAULT_CONFIG = 'config/switzerland.yaml'
 
@@ -7,9 +8,9 @@ def run (env_path = DEFAULT_CONFIG):
     print('run')
     
     env = EpidemicEnv(env_path)
-    model = None
+    model = DQN()
     params = None
     
-    train = Trainer(env, model, params)
+    agent = Agent(env, model, params)
     pass
     
