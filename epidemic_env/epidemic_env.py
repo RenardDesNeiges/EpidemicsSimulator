@@ -1,7 +1,7 @@
 import gym
 from gym import spaces
 import numpy as np
-from dynamics import ModelDynamics
+from epidemic_env.dynamics import ModelDynamics
 from datetime import datetime as dt
 
 
@@ -25,22 +25,22 @@ class EpidemicEnv(gym.Env):
         #                                 = (deaths + infected) x N_CITIES x 7
         #                                 = 2 x N_CITIES x 7
         # note that values are normalized between 0 and 1
-        self.observation_space = spaces.Box(low=0, high=1, shape=(self.dyn.n_cities, self.dyn.env_step_length, 2), dtype=np.float16)
+        self.observation_space = spaces.Box(low=0, high=1, shape=(2, self.dyn.n_cities, self.dyn.env_step_length), dtype=np.float16)
     
     # Compute a reward
     def compute_reward(self, act_dict, obs_dict):
-        dead_penality = 10000 * obs_dict['total']['dead'][-1]/self.dyn.total_pop
-        confinement_penality = 1000*np.dot(
+        dead_penality = 600 * obs_dict['total']['dead'][-1]/self.dyn.total_pop
+        confinement_penality = 100*np.dot(
             np.array([int(e) for (_,e) in act_dict['confinement'].items()]), 
             np.array([float(e) for (_,e) in obs_dict['pop'].items()]))/self.dyn.total_pop
-        isolation_penality = 1000*np.dot(
+        isolation_penality = 100*np.dot(
             np.array([int(e) for (_,e) in act_dict['isolation'].items()]), 
             np.array([float(e) for (_,e) in obs_dict['pop'].items()]))/self.dyn.total_pop
-        hospital_penality = 5000*np.dot(
+        hospital_penality = 500*np.dot(
             np.array([int(e) for (_,e) in act_dict['hospital'].items()]), 
             np.array([float(e) for (_,e) in obs_dict['pop'].items()]))/self.dyn.total_pop
-        vaccination_penality = 5000* int(act_dict['vaccinate'])
-        return 1000 - dead_penality - confinement_penality - isolation_penality - hospital_penality - vaccination_penality
+        vaccination_penality = 500* int(act_dict['vaccinate'])
+        return 2000 - dead_penality - confinement_penality - isolation_penality - hospital_penality - vaccination_penality
     
     # converts a vector to a dictionary
     def vec2dict(self, act):
@@ -70,14 +70,15 @@ class EpidemicEnv(gym.Env):
         
         obs = self.dict2vec(_obs_dict)
         reward = self.compute_reward(_act_dict, _obs_dict)
+        self.total_reward += reward
         done = self.current_step >= self.ep_len
         
-        
-        return obs, reward, done, {}
+        return obs, reward, done, {'parameters':self.dyn.epidemic_parameters()}
 
     # Reset the state of the environment to an initial state
     def reset(self, seed = None):
         self.current_step = 0
+        self.total_reward = 0
         self.dyn.reset()
         if seed is None:
             self.dyn.start_epidemic(dt.now())
@@ -92,8 +93,3 @@ class EpidemicEnv(gym.Env):
     def render(self, mode='human', close=False):
         total, _ = self.dyn.epidemic_parameters()
         print('Epidemic state : \n   - dead: {}\n   - infected: {}'.format(total['dead'],total['infected']))
-        
-env = EpidemicEnv('./config/switzerland.yaml')
-env.reset()
-obs, reward, done, _ = env.step(env.action_space.sample())
-env.render()
