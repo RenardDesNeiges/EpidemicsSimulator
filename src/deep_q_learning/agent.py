@@ -73,28 +73,19 @@ class Agent():
 
         # Convert Batch(Transitions) -> Transition(Batch)
         batch = Transition(*zip(*transitions))
-
-        # Compute a mask of non-final states and concatenate the batch elements
-        # (a final state would've been the one after which simulation ended)
-        non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
-                                            batch.next_state)), device=self.device, dtype=torch.bool)
-        batch_next_states = [s for s in batch.next_state if s is not None]
-        if len(batch_next_states)==0:
-            return np.double(0)
-        non_final_next_states = torch.cat([s for s in batch.next_state if s is not None])
+        
         
         state_batch = torch.cat(batch.state,0)
-        action_batch = torch.cat(batch.action,0)
+        next_states_batch = torch.cat(batch.next_state,0)
         reward_batch = torch.cat(batch.reward)
 
         # Compute Q(S, a) with the Q-value network
-        state_action_values = self.model(state_batch).gather(1, action_batch.to(torch.int64))
+        state_action_values = self.model(state_batch)
 
         # Compute max_ap Q(Sp) with the stable target network
-        next_state_values = torch.zeros(self.batch_size, device=self.device)
-        next_state_values[non_final_mask] = self.targetModel(non_final_next_states).max(1)[0].detach()
+        next_state_values = torch.round(self.targetModel(next_states_batch).detach().sigmoid())
         # Compute the expected Q values
-        expected_state_action_values = (next_state_values.unsqueeze(1) * self.gamma) + reward_batch
+        expected_state_action_values = (next_state_values * self.gamma) + reward_batch
 
         # Compute Huber loss
         loss = self.criterion(state_action_values, expected_state_action_values)

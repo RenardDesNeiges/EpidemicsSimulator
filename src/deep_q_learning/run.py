@@ -13,8 +13,9 @@ DEFAULT_PARAMS = {
     'model' : 'DQN',
     'target_update_rate' : 5,
     'reward_sample_rate' : 2,
+    'viz_sample_rate' : 10,
     'num_episodes' : 1000,
-    'criterion' :  nn.MultiLabelSoftMarginLoss,
+    'criterion' :  nn.MultiLabelSoftMarginLoss(),
     'lr' :  5e-4,
     'epsilon': 0.3, 
     'gamma': 0.99,
@@ -33,11 +34,15 @@ class Trainer():
 
         for episode in range(params['num_episodes']):
             finished = False
-            S, _, _, _ = env.reset()
+            S, _, _, info = env.reset()
+            info_hist = [info]
+            
             while not finished:
                 a = agent.act(S) 
             
-                Sp, R, finished, _ = env.step(a) 
+                Sp, R, finished, info = env.step(a) 
+                info_hist.append(info)
+                
                 agent.memory.push(S, a, Sp, R)
                 cumulative_reward += R
                 S = Sp
@@ -61,6 +66,10 @@ class Trainer():
 
                 cumulative_reward = 0
                 cumulative_loss = 0        
+
+            if  episode%params['viz_sample_rate'] == params['viz_sample_rate']:
+
+                pass
 
         return None    
     
