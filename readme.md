@@ -60,3 +60,4 @@ The reward is computed as follows :
 
 ## Todos :
 - Write a visualization library
+- Write a deep Q learning model
