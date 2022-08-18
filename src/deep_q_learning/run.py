@@ -1,11 +1,12 @@
 from epidemic_env.epidemic_env import EpidemicEnv
+from epidemic_env.visualize import Visualize
 from deep_q_learning.agent import Agent
 import deep_q_learning.model as models
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
 from datetime import datetime
 
-LOG_FOLDER = 'runs/log/'
+LOG_FOLDER = 'runs/'
 
 DEFAULT_PARAMS = {
     'run_name' : 'default' + datetime.today().strftime('%m_%d.%H_%M_%S'),
@@ -27,6 +28,13 @@ DEFAULT_PARAMS = {
 class Trainer():
     
     @staticmethod
+    def render_log(writer,hist, episode):
+        print('Logging image')
+        episode_img = Visualize.render_episode_country(hist).transpose(2,0,1)
+        writer.add_image(f'Episode/Viz', episode_img, episode)
+        pass
+    
+    @staticmethod
     def train(env,agent,writer,params):
 
         cumulative_reward = 0
@@ -39,6 +47,7 @@ class Trainer():
             
             while not finished:
                 a = agent.act(S) 
+                info_hist[-1]['action'] = env.vec2dict(a)
             
                 Sp, R, finished, info = env.step(a) 
                 info_hist.append(info)
@@ -67,8 +76,8 @@ class Trainer():
                 cumulative_reward = 0
                 cumulative_loss = 0        
 
-            if  episode%params['viz_sample_rate'] == params['viz_sample_rate']:
-
+            if episode%params['viz_sample_rate'] == 0:
+                Trainer.render_log(writer, info_hist,episode)
                 pass
 
         return None    

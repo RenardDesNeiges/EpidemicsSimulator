@@ -6,8 +6,8 @@ Building a reinforcement learning environment for training epidemic mitigation p
 
 ## TODO List
 
-* Episode rendering
-* normalize obs
+* Episode rendering √
+* normalize obs 
 * Model design
 * CNN experiment
 * Raise LR

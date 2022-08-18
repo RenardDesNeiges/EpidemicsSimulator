@@ -69,7 +69,7 @@ class EpidemicEnv(gym.Env):
     # Execute one time step within the environment
     def step(self, action):
         
-        self.current_step += 1
+        self.day += 1
         
         _act_dict = self.vec2dict(action)
         _obs_dict = self.dyn.step(_act_dict)
@@ -77,13 +77,13 @@ class EpidemicEnv(gym.Env):
         obs = self.dict2vec(_obs_dict)
         self.reward = self.compute_reward(_act_dict, _obs_dict)
         self.total_reward += self.reward
-        done = self.current_step >= self.ep_len
+        done = self.day >= self.ep_len
         
-        return obs, self.reward, done, {'parameters':self.dyn.epidemic_parameters()}
+        return obs, self.reward, done, {'parameters':self.dyn.epidemic_parameters(self.day)}
 
     # Reset the state of the environment to an initial state
     def reset(self, seed = None):
-        self.current_step = 0
+        self.day = 0
         self.total_reward = 0
         self.dyn.reset()
         if seed is None:
@@ -96,9 +96,9 @@ class EpidemicEnv(gym.Env):
         return self.observe()
     
     def observe(self,):
-        return self.last_obs, self.reward, (self.current_step >= self.ep_len), {'parameters':self.dyn.epidemic_parameters()}
+        return self.last_obs, self.reward, (self.day >= self.ep_len), {'parameters':self.dyn.epidemic_parameters(self.day)}
 
     # Render the environment to the screen 
     def render(self, mode='human', close=False):
-        total, _ = self.dyn.epidemic_parameters()
+        total, _ = self.dyn.epidemic_parameters(self.day)
         print('Epidemic state : \n   - dead: {}\n   - infected: {}'.format(total['dead'],total['infected']))

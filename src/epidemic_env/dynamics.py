@@ -131,7 +131,7 @@ class ModelDynamics():
             total [dict] : a dict containing the total suceptible, infected, recovered and dead population
             cities [dict] : a dict containing the suceptible, infected, recovered and dead population per city
     """
-    def epidemic_parameters(self,):
+    def epidemic_parameters(self,day=None):
         cities = {}
         suceptible_total = 0
         exposed_total = 0
@@ -154,6 +154,7 @@ class ModelDynamics():
             total += self.map.nodes[c]['pop']
             
             city = {
+                'day' : day,
                 'suceptible' : suceptible,
                 'exposed' : exposed,
                 'infected' : infected,
@@ -164,6 +165,7 @@ class ModelDynamics():
             cities[c] = city
         
         total = {
+            'day' : day,
             'suceptible' : suceptible_total,
             'exposed' : exposed_total,
             'infected' : infected_total,
