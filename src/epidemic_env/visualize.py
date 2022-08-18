@@ -18,7 +18,7 @@ def fig_2_numpy(fig):
     return img_arr
 
 
-def plot_time_boolean(dataframe,ax, true_label, false_label):
+def plot_time_boolean(dataframe,ax, false_label, true_label):
     b_array = np.array(dataframe).transpose()
     ax.imshow(b_array,aspect='auto', interpolation=None, cmap='bwr')
 
@@ -43,11 +43,12 @@ class Visualize():
         hospital_hist = pd.DataFrame([e['action']['hospital'] for e in info_hist[0:-1]])
         vaccinate_hist = pd.DataFrame([e['action']['vaccinate'] for e in info_hist[0:-1]])
         
-        fig, ax = plt.subplots(2,2)
+        fig, ax = plt.subplots(3,2) #,figsize=(15, 10))
         infection_hist.plot(y='infected', use_index=True, ax=ax[0,0])
         infection_hist.plot(y='dead', x='day', ax=ax[0,0])
         plot_time_boolean(confinement_hist,ax[1,0], 'Confined', 'Not Confined')
         plot_time_boolean(isolation_hist,ax[0,1], 'Isolated', 'Not Isolated')
         plot_time_boolean(hospital_hist,ax[1,1], 'With additional hospital beds', 'Without additional hospital beds')
+        plot_time_boolean(vaccinate_hist,ax[2,1], 'Vaccinate', 'Do not vaccinate')
         
         return fig_2_numpy(fig)

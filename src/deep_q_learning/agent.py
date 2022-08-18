@@ -11,7 +11,6 @@ Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
 
 class ReplayMemory(object):
-
     def __init__(self, capacity):
         self.memory = deque([],maxlen=capacity)
 
@@ -29,7 +28,7 @@ class Agent():
         
     def __init__(self,  env, 
                         model, 
-                        criterion = nn.MultiLabelSoftMarginLoss,
+                        criterion = nn.CrossEntropyLoss(),
                         lr = 5e-4, 
                         epsilon = 0.3, 
                         gamma = 0.99,
@@ -38,9 +37,12 @@ class Agent():
 
         self.env = env
         
-        self.model = model(in_dim=len(env.observation_space.sample().flatten()),
-                           out_dim=env.action_space.sample().shape[0])
-        self.targetModel = model()
+        model_params = {
+            'in_dim':len(env.observation_space.sample().flatten()),
+            'out_dim':env.action_space.n,
+        }
+        self.model = model(**model_params)
+        self.targetModel = model(**model_params)
         
         self.criterion = criterion
                 
@@ -74,13 +76,13 @@ class Agent():
         # Convert Batch(Transitions) -> Transition(Batch)
         batch = Transition(*zip(*transitions))
         
-        
+        action_batch = torch.tensor([e for e in batch.action])
         state_batch = torch.cat(batch.state,0)
         next_states_batch = torch.cat(batch.next_state,0)
         reward_batch = torch.cat(batch.reward)
 
         # Compute Q(S, a) with the Q-value network
-        state_action_values = self.model(state_batch)
+        state_action_values = self.model(state_batch).gather(1, action_batch.unsqueeze(1))
 
         # Compute max_ap Q(Sp) with the stable target network
         next_state_values = torch.round(self.targetModel(next_states_batch).detach().sigmoid())
@@ -106,6 +108,9 @@ class Agent():
         if sample > self.epsilon:
             with torch.no_grad():
                 action_distribution = self.model(x)
-                return torch.round(action_distribution.sigmoid())
+                return np.argmax(
+                    np.exp(action_distribution.numpy())
+                    /np.sum(np.exp(action_distribution.numpy())
+                    ))
         else:
-            return torch.Tensor(self.env.action_space.sample()).unsqueeze(0)
+            return self.env.action_space.sample()

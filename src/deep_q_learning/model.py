@@ -4,7 +4,7 @@ import torch.nn as nn
 class DQN(nn.Module):
     """Fully connected classifier network for classfiying feature vectors."""
     
-    def __init__(self, in_dim = 126, out_dim = 28, dropout=0):
+    def __init__(self, in_dim = 126, out_dim = 16, dropout=0):
         super().__init__()
 
         # Dropout modules

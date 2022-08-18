@@ -5,7 +5,7 @@ import numpy as np
 from epidemic_env.dynamics import ModelDynamics
 from datetime import datetime as dt
 
-
+SCALE = 100
 """Custom Environment that subclasses gym env"""
 class EpidemicEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -18,8 +18,8 @@ class EpidemicEnv(gym.Env):
         self.dyn = ModelDynamics(source_file) # create the dynamical model
         
         # action space 
-        N_DISCRETE_ACTIONS = self.dyn.n_cities * 3 + 1
-        self.action_space = spaces.MultiBinary((N_DISCRETE_ACTIONS))  
+        N_DISCRETE_ACTIONS = 4
+        self.action_space = spaces.Discrete(2**N_DISCRETE_ACTIONS)
 
 
         # the observation space is of shape N_CHANNEL x N_CITIES x N_DAYS
@@ -44,26 +44,24 @@ class EpidemicEnv(gym.Env):
             np.array([float(e) for (_,e) in obs_dict['pop'].items()]))/self.dyn.total_pop
         vaccination_penality = 500* int(act_dict['vaccinate'])
         
-        rew = (2000 - dead_penality - confinement_penality - isolation_penality - hospital_penality - vaccination_penality) / 1e7
+        rew = (2000 - dead_penality - confinement_penality - isolation_penality - hospital_penality - vaccination_penality) / 1e5
         
         return torch.Tensor([rew]).unsqueeze(0)
     
-    # converts a vector to a dictionary
+    # converts an action to an action dictionary
     def vec2dict(self, act):
-        i = 0
-        _act = self.dyn.NULL_ACTION
-        for c in self.dyn.cities:
-            _act['confinement'][c] = bool(act[0,0:self.dyn.n_cities][i])
-            _act['isolation'][c] = bool(act[0,self.dyn.n_cities:2*self.dyn.n_cities][i])
-            _act['hospital'][c] = bool(act[0,2*self.dyn.n_cities:3*self.dyn.n_cities][i])
-            i+=1
-        _act['vaccinate'] = bool(act[0,3*self.dyn.n_cities])
-        return _act
+        act_digits = '{0:04b}'.format(act)
+        act_dict = self.dyn.NULL_ACTION
+        act_dict['confinement'] = {e:(act_digits[0] == '1') for (e,k) in act_dict['confinement'].items()}
+        act_dict['isolation'] = {e:(act_digits[1] == '1') for (e,k) in act_dict['isolation'].items()}
+        act_dict['hospital'] = {e:(act_digits[2] == '1') for (e,k) in act_dict['hospital'].items()}
+        act_dict['vaccinate'] = (act_digits[3] == '1')
+        return act_dict
     
     # converts a dictionary of observations to a normalized observation vector
     def dict2vec(self, obs):
-        infected = np.array([np.array(obs['city']['infected'][c])/obs['pop'][c] for c in self.dyn.cities])
-        dead = np.array([np.array(obs['city']['dead'][c])/obs['pop'][c] for c in self.dyn.cities])
+        infected = SCALE*np.array([np.array(obs['city']['infected'][c])/obs['pop'][c] for c in self.dyn.cities])
+        dead = SCALE*np.array([np.array(obs['city']['dead'][c])/obs['pop'][c] for c in self.dyn.cities])
         return torch.Tensor(np.stack((infected,dead))).unsqueeze(0)
 
     # Execute one time step within the environment

@@ -7,11 +7,13 @@ Building a reinforcement learning environment for training epidemic mitigation p
 ## TODO List
 
 * Episode rendering √
-* normalize obs 
-* Model design
-* CNN experiment
+* normalize obs  √
+  * Find out what is wrong with vec2dict √
+  * Redesign the action space (so that it is categorical)  √
+* Model design 
+  * CNN experiment 
 * Raise LR
-* Run with clean parameters
+* Run with clean parameters √
 
 ## Dynamical model design:
 
@@ -58,10 +60,17 @@ We choose parameters such that 3 dynamical model integration steps amount to one
 The hidden variables are the exposed and recovered variables. (**Should we give an approximation of the recovered ?**).
 
 
-The MDP is defined in such a way that the actor network has to make one decision per week. We define the action space as follows : 
+The MDP is defined in such a way that the actor network has to make one decision per week. We define the action space as follows (not really approachable with Deep Q Learning): 
 - confinement (per city)
 - Isolation (block the in and outgoing roads, per-city)
 - pay for exceptional hospital beds (per-city)
+- subsidize vaccination (country-wide)
+
+Alternative action space any combination of :
+
+- confinement (country-wide)
+- Isolation (country-wide)
+- pay for (country-wide)
 - subsidize vaccination (country-wide)
 
 The reward is computed as follows : 

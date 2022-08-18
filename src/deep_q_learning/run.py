@@ -5,6 +5,8 @@ import deep_q_learning.model as models
 from torch.utils.tensorboard import SummaryWriter
 import torch.nn as nn
 from datetime import datetime
+import numpy as np
+from copy import deepcopy
 
 LOG_FOLDER = 'runs/'
 
@@ -13,7 +15,7 @@ DEFAULT_PARAMS = {
     'env_config' : 'config/switzerland.yaml',
     'model' : 'DQN',
     'target_update_rate' : 5,
-    'reward_sample_rate' : 2,
+    'reward_sample_rate' : 1,
     'viz_sample_rate' : 10,
     'num_episodes' : 1000,
     'criterion' :  nn.MultiLabelSoftMarginLoss(),
@@ -44,15 +46,19 @@ class Trainer():
             finished = False
             S, _, _, info = env.reset()
             info_hist = [info]
+            obs_hist = [S]
+            a_buffer = []
             
             while not finished:
                 a = agent.act(S) 
-                info_hist[-1]['action'] = env.vec2dict(a)
+                info_hist[-1]['action'] = deepcopy(env.vec2dict(a))
             
-                Sp, R, finished, info = env.step(a) 
+                Sp, R, finished, info = deepcopy(env.step(a))
+                obs_hist.append(Sp)
                 info_hist.append(info)
-                
+                a_buffer.append(np.array([int(e) for e in '{0:04b}'.format(a) ]))
                 agent.memory.push(S, a, Sp, R)
+                
                 cumulative_reward += R
                 S = Sp
                 
@@ -70,6 +76,12 @@ class Trainer():
                                   float((cumulative_reward/params['reward_sample_rate'])[0,0]), episode)
                 writer.add_scalar('Train/Loss', 
                                   cumulative_loss/params['reward_sample_rate'], episode)
+
+                writer.add_scalar('Model/Deaths', 
+                                  cumulative_loss/info_hist[-1]['parameters'][0]['dead'], episode)
+
+                writer.add_scalar('Model/Recovered', 
+                                  cumulative_loss/info_hist[-1]['parameters'][0]['recovered'], episode)
 
                 print("episode {}, avg reward = {}".format(episode, float((cumulative_reward/params['reward_sample_rate'])[0,0])))
 
