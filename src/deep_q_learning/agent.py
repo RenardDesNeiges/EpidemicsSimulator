@@ -29,7 +29,7 @@ class Agent():
         
     def __init__(self,  env, 
                         model, 
-                        loss = nn.HuberLoss(),
+                        criterion = nn.MultiLabelSoftMarginLoss,
                         lr = 5e-4, 
                         epsilon = 0.3, 
                         gamma = 0.99,
@@ -42,7 +42,7 @@ class Agent():
                            out_dim=env.action_space.sample().shape[0])
         self.targetModel = model()
         
-        self.loss = loss
+        self.criterion = criterion
                 
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
 
@@ -97,8 +97,7 @@ class Agent():
         expected_state_action_values = (next_state_values.unsqueeze(1) * self.gamma) + reward_batch
 
         # Compute Huber loss
-        criterion = nn.MultiLabelSoftMarginLoss()
-        loss = criterion(state_action_values, expected_state_action_values)
+        loss = self.criterion(state_action_values, expected_state_action_values)
 
         # Optimize the model
         self.optimizer.zero_grad()

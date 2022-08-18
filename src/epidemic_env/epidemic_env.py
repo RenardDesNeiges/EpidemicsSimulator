@@ -43,7 +43,10 @@ class EpidemicEnv(gym.Env):
             np.array([int(e) for (_,e) in act_dict['hospital'].items()]), 
             np.array([float(e) for (_,e) in obs_dict['pop'].items()]))/self.dyn.total_pop
         vaccination_penality = 500* int(act_dict['vaccinate'])
-        return torch.Tensor([2000 - dead_penality - confinement_penality - isolation_penality - hospital_penality - vaccination_penality]).unsqueeze(0)
+        
+        rew = (2000 - dead_penality - confinement_penality - isolation_penality - hospital_penality - vaccination_penality) / 1e7
+        
+        return torch.Tensor([rew]).unsqueeze(0)
     
     # converts a vector to a dictionary
     def vec2dict(self, act):

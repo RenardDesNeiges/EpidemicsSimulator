@@ -2,6 +2,16 @@
 
 Building a reinforcement learning environment for training epidemic mitigation policies. (Presumably using Q-learning.)
 
+
+
+## TODO List
+
+* Episode rendering
+* Model design
+* CNN experiment
+* Raise LR
+* Run with clean parameters
+
 ## Dynamical model design:
 
 ![epidemic growth](figures/switzerland.png)
