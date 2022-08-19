@@ -11,15 +11,16 @@ from copy import deepcopy
 LOG_FOLDER = 'runs/'
 
 DEFAULT_PARAMS = {
+    'log' : True,
     'run_name' : 'default' + datetime.today().strftime('%m_%d.%H_%M_%S'),
     'env_config' : 'config/switzerland.yaml',
-    'model' : 'DQN',
+    'model' : 'DQN', # 'DQ_CNN',
     'target_update_rate' : 5,
     'reward_sample_rate' : 1,
     'viz_sample_rate' : 10,
-    'num_episodes' : 1000,
+    'num_episodes' : int(3e4),
     'criterion' :  nn.MultiLabelSoftMarginLoss(),
-    'lr' :  5e-4,
+    'lr' :  5e-3, #5e-3,
     'epsilon': 0.3, 
     'gamma': 0.99,
     'buffer_size': 10000, 
@@ -47,7 +48,6 @@ class Trainer():
             S, _, _, info = env.reset()
             info_hist = [info]
             obs_hist = [S]
-            a_buffer = []
             
             while not finished:
                 a = agent.act(S) 
@@ -56,7 +56,6 @@ class Trainer():
                 Sp, R, finished, info = deepcopy(env.step(a))
                 obs_hist.append(Sp)
                 info_hist.append(info)
-                a_buffer.append(np.array([int(e) for e in '{0:04b}'.format(a) ]))
                 agent.memory.push(S, a, Sp, R)
                 
                 cumulative_reward += R
@@ -64,24 +63,36 @@ class Trainer():
                 
                 if episode % params['target_update_rate'] == 0:
                     agent.targetModel.load_state_dict(agent.model.state_dict())
-
+                if episode%params['viz_sample_rate'] == 0:
+                    agent.epsilon = 0
+                else:
+                    agent.epsilon = params['epsilon']
                 loss = agent.optimize_model()
                 cumulative_loss += loss
                 if finished:
                     break
                 
             if  episode%params['reward_sample_rate'] == params['reward_sample_rate']-1:
-
-                writer.add_scalar('Train/Reward', 
-                                  float((cumulative_reward/params['reward_sample_rate'])[0,0]), episode)
-                writer.add_scalar('Train/Loss', 
-                                  cumulative_loss/params['reward_sample_rate'], episode)
-
-                writer.add_scalar('Model/Deaths', 
-                                  cumulative_loss/info_hist[-1]['parameters'][0]['dead'], episode)
-
-                writer.add_scalar('Model/Recovered', 
-                                  cumulative_loss/info_hist[-1]['parameters'][0]['recovered'], episode)
+                
+                if params['log']:
+                    writer.add_scalar('Train/Reward', 
+                                    float((cumulative_reward/params['reward_sample_rate'])[0,0]), episode)
+                    writer.add_scalar('Train/Loss', 
+                                    cumulative_loss/params['reward_sample_rate'], episode)
+                    writer.add_scalar('Model/Deaths', 
+                                    info_hist[-1]['parameters'][0]['dead'], episode)
+                    writer.add_scalar('Model/PeakInfection', 
+                                    np.max([e['parameters'][0]['infected'] for e in info_hist[:-1]]), episode)
+                    writer.add_scalar('Model/Recovered', 
+                                    info_hist[-1]['parameters'][0]['recovered'], episode)
+                    writer.add_scalar('Model/ConfinedDays', 
+                                    np.sum([e['action']['confinement']['Lausanne'] for e in info_hist[:-1]])*7, episode)
+                    writer.add_scalar('Model/IsolationDays', 
+                                    np.sum([e['action']['isolation']['Lausanne'] for e in info_hist[:-1]])*7, episode)
+                    writer.add_scalar('Model/AdditionalHospitalDays', 
+                                    np.sum([e['action']['hospital']['Lausanne'] for e in info_hist[:-1]])*7, episode)
+                    writer.add_scalar('Model/FreeVaccinationDays', 
+                                    np.sum([e['action']['vaccinate'] for e in info_hist[:-1]])*7, episode)
 
                 print("episode {}, avg reward = {}".format(episode, float((cumulative_reward/params['reward_sample_rate'])[0,0])))
 
@@ -89,8 +100,8 @@ class Trainer():
                 cumulative_loss = 0        
 
             if episode%params['viz_sample_rate'] == 0:
-                Trainer.render_log(writer, info_hist,episode)
-                pass
+                if params['log']:
+                    Trainer.render_log(writer, info_hist,episode)
 
         return None    
     
@@ -115,7 +126,8 @@ class Trainer():
                         buffer_size = params['buffer_size'],
                         batch_size = params['batch_size'])
         
-        writer = SummaryWriter(log_dir=logpath)
+        if params['log']:
+            writer = SummaryWriter(log_dir=logpath)
         
         Trainer.train(env,agent,writer,params)
         

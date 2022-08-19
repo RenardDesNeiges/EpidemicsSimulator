@@ -30,7 +30,7 @@ class Agent():
                         model, 
                         criterion = nn.CrossEntropyLoss(),
                         lr = 5e-4, 
-                        epsilon = 0.3, 
+                        epsilon = 0.5, 
                         gamma = 0.99,
                         buffer_size = 10000, 
                         batch_size = 64):

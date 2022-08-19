@@ -6,13 +6,9 @@ Building a reinforcement learning environment for training epidemic mitigation p
 
 ## TODO List
 
-* Episode rendering √
-* normalize obs  √
-  * Find out what is wrong with vec2dict √
-  * Redesign the action space (so that it is categorical)  √
-* Model design 
-  * CNN experiment 
-* Raise LR
+* Clean reward function
+* "Toggle" distributed architecture
+* D-Q-learning
 * Run with clean parameters √
 
 ## Dynamical model design:

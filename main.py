@@ -10,6 +10,5 @@ from src.deep_q_learning.run import Trainer, DEFAULT_PARAMS
 DEFAULT_CONFIG = 'config/switzerland.yaml'
 
 if __name__ == '__main__':
-
     Trainer.run(DEFAULT_PARAMS)
     

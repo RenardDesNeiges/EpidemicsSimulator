@@ -32,17 +32,17 @@ class EpidemicEnv(gym.Env):
     
     # Compute a reward
     def compute_reward(self, act_dict, obs_dict):
-        dead_penality = 600 * obs_dict['total']['dead'][-1]/self.dyn.total_pop
-        confinement_penality = 100*np.dot(
+        dead_penality = 1e5 * obs_dict['total']['dead'][-1]/self.dyn.total_pop
+        confinement_penality = 150*np.dot(
             np.array([int(e) for (_,e) in act_dict['confinement'].items()]), 
             np.array([float(e) for (_,e) in obs_dict['pop'].items()]))/self.dyn.total_pop
-        isolation_penality = 100*np.dot(
+        isolation_penality = 50*np.dot(
             np.array([int(e) for (_,e) in act_dict['isolation'].items()]), 
             np.array([float(e) for (_,e) in obs_dict['pop'].items()]))/self.dyn.total_pop
-        hospital_penality = 500*np.dot(
+        hospital_penality = 200*np.dot(
             np.array([int(e) for (_,e) in act_dict['hospital'].items()]), 
             np.array([float(e) for (_,e) in obs_dict['pop'].items()]))/self.dyn.total_pop
-        vaccination_penality = 500* int(act_dict['vaccinate'])
+        vaccination_penality = 50* int(act_dict['vaccinate'])
         
         rew = (2000 - dead_penality - confinement_penality - isolation_penality - hospital_penality - vaccination_penality) / 1e5
         
