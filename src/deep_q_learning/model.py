@@ -29,14 +29,14 @@ class DQN(nn.Module):
         
  
     def forward(self, x):
-        x = self.fcn(x.view(x.size(0),-1))
+        x = self.fcn(x.flatten())
 
         x = self.dropout(x)
         return x
 
 
 class DQ_CNN(nn.Module):
-    """CNN classifier network for MEL Spectrograms and MFCC coefficients."""
+    """CNN classifier network."""
     
     def __init__(self, in_dim = 126, out_dim = 16,  classifier_dropout = 0.4, conv_dropout = 0.25):
         """CNN classifier network for MEL Spectrograms and MFCC coefficients.

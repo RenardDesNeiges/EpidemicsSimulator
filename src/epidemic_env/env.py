@@ -17,21 +17,26 @@ class EpidemicEnv(gym.Env):
         
         self.dyn = ModelDynamics(source_file) # create the dynamical model
         
-        # action space 
-        N_DISCRETE_ACTIONS = 4
-        self.action_space = spaces.Discrete(2**N_DISCRETE_ACTIONS)
+        # action space (any combination of 4 actions)
+        N_DISCRETE_ACTIONS = 2**4
+        self.action_space = spaces.Discrete(N_DISCRETE_ACTIONS) # toggle behavior
 
 
-        # the observation space is of shape N_CHANNEL x N_CITIES x N_DAYS
-        #                                 = (deaths + infected) x N_CITIES x 7
-        #                                 = 2 x N_CITIES x 7
+        # the observation space is of shape N_CHANNEL x N_DAYS
+        #                                 = 2 x 7
         # note that values are normalized between 0 and 1
-        self.observation_space = spaces.Box(low=0, high=1, shape=(2, self.dyn.n_cities, self.dyn.env_step_length), dtype=np.float16)
+        self.observation_space = spaces.Box(
+                        low=0, 
+                        high=1, 
+                        shape=(2, self.dyn.env_step_length), 
+                        dtype=np.float16)
+        
         self.reward = torch.Tensor([0]).unsqueeze(0)
         self.reset()
     
     # Compute a reward
     def compute_reward(self, act_dict, obs_dict):
+    # TODO : per city reward
         dead_penality = 1e5 * obs_dict['total']['dead'][-1]/self.dyn.total_pop
         confinement_penality = 150*np.dot(
             np.array([int(e) for (_,e) in act_dict['confinement'].items()]), 
@@ -46,18 +51,21 @@ class EpidemicEnv(gym.Env):
         
         rew = (2000 - dead_penality - confinement_penality - isolation_penality - hospital_penality - vaccination_penality) / 1e5
         
+
         return torch.Tensor([rew]).unsqueeze(0)
     
+    # TODO : update for the new obs
     # converts an action to an action dictionary
     def vec2dict(self, act):
         act_digits = '{0:04b}'.format(act)
         act_dict = self.dyn.NULL_ACTION
-        act_dict['confinement'] = {e:(act_digits[0] == '1') for (e,k) in act_dict['confinement'].items()}
-        act_dict['isolation'] = {e:(act_digits[1] == '1') for (e,k) in act_dict['isolation'].items()}
-        act_dict['hospital'] = {e:(act_digits[2] == '1') for (e,k) in act_dict['hospital'].items()}
+        act_dict['confinement'] = {e:(act_digits[0] == '1') for (e,_) in act_dict['confinement'].items()}
+        act_dict['isolation'] = {e:(act_digits[1] == '1') for (e,_) in act_dict['isolation'].items()}
+        act_dict['hospital'] = {e:(act_digits[2] == '1') for (e,_) in act_dict['hospital'].items()}
         act_dict['vaccinate'] = (act_digits[3] == '1')
         return act_dict
     
+    # TODO : update for the new obs    
     # converts a dictionary of observations to a normalized observation vector
     def dict2vec(self, obs):
         infected = SCALE*np.array([np.array(obs['city']['infected'][c])/obs['pop'][c] for c in self.dyn.cities])
@@ -73,6 +81,7 @@ class EpidemicEnv(gym.Env):
         _obs_dict = self.dyn.step(_act_dict)
         
         obs = self.dict2vec(_obs_dict)
+        self.last_obs = self.dict2vec(obs)
         self.reward = self.compute_reward(_act_dict, _obs_dict)
         self.total_reward += self.reward
         done = self.day >= self.ep_len

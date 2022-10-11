@@ -2,8 +2,6 @@
 
 Building a reinforcement learning environment for training epidemic mitigation policies. (Presumably using Q-learning.)
 
-
-
 ## TODO List
 
 * Clean reward function

@@ -47,8 +47,6 @@ class Agent():
         self.criterion = criterion
                 
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
-
-        self.n_actions = 9
         
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         
