@@ -103,7 +103,7 @@ class ModelDynamics():
         self.c_confined = {c:1 for c in self.cities}
         self.c_isolated = {c:1 for c in self.cities}
         self.extra_hospital_beds = {c:1 for c in self.cities}
-        self.vaccinate = 0
+        self.vaccinate = {c:0 for c in self.cities}
 
     
     """ Draws the map on which the epidemic is simulated
@@ -188,6 +188,18 @@ class ModelDynamics():
         Returns : 
             None
     """ 
+
+    def toggle(self,act,city):
+        if act == 'confinement':
+            self.c_confined[city] = not self.c_confined[city]
+        elif act == 'isolation':
+            self.c_isolated[city] = not self.c_isolated[city]
+        elif act == 'hospital':
+            self.extra_hospital_beds[city] = not self.extra_hospital_beds[city]
+        elif act == 'vaccinate':
+            self.vaccinate[city] = not self.vaccinate[city]
+        return
+
     def start_epidemic(self,seed=10, sources=1, prop=0.01):
         rd.seed(seed)
         
@@ -214,19 +226,10 @@ class ModelDynamics():
                     pop    :    dict(int) initial per-city population (to allow normalization)
 
     """
-    def step(self, act):
-        
-        # change the model parameters according to the actions
-        self.c_confined = {c:(self.confinement_effectiveness if v else 1) 
-                           for (c,v) in act['confinement'].items()}
-        self.c_isolated = {c:(self.isolation_effectiveness if v else 1) 
-                           for (c,v) in act['isolation'].items()}
-        self.vaccinate = self.vaccination_effectiveness if act['vaccinate'] else 0
-        self.extra_hospital_beds = {c:(self.extra_hospital_effectiveness if v else 1) 
-                                    for (c,v) in act['hospital'].items()}
+    def step(self):
         _total_history = []
         _city_history = []
-        # print step through a week of simulation to produce one environment step
+        # step through a week of simulation to produce one environment step
         for i in range(self.env_step_length*self.srate):
             self.step_dyn()
             total, cities = self.epidemic_parameters()
@@ -290,7 +293,7 @@ class ModelDynamics():
             new_exposed = stoch_alpha * (s * i  + sum_term)
             
             # vaccination
-            stoch_mu = self.vaccinate/self.map.nodes[c]['pop'] 
+            stoch_mu = self.vaccination_effectiveness[c]/self.map.nodes[c]['pop'] if self.vaccinate[c] else 0
             new_vaccinated = np.fmax(np.fmin(float(stoch_mu*s), float(stoch_mu)),0)
             
             # exposure to infection flow

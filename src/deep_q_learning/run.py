@@ -55,13 +55,12 @@ class Trainer():
             obs_hist = [S]
             
             while not finished:
-                actions = []
+                a = []
                 for _id,_ in enumerate(env.dyn.cities):
                     obs = S[:,:,_id,:] # TODO implement the toggle
-                    actions.append(agents[c].act(obs))
+                    a.append(agents[c].act(obs))
                     # info_hist[-1]['action'] = deepcopy(env.vec2dict(a)) TODO fix the logging for the multiagent setup
-                    
-                a = _ # TODO : compute a single action 'a' from 'actions' <env.merge_actions(actions)>
+                
                 Sp, R, finished, info = deepcopy(env.step(a)) # TODO : compute a single action from every agent's action
                 # TODO : split the rewards up
                 
