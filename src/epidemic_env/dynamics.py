@@ -191,13 +191,13 @@ class ModelDynamics():
 
     def toggle(self,act,city):
         if act == 'confinement':
-            self.c_confined[city] = not self.c_confined[city]
+            self.c_confined[city] = 0 if self.c_confined[city] == 1 else 1 
         elif act == 'isolation':
-            self.c_isolated[city] = not self.c_isolated[city]
+            self.c_isolated[city] =  0 if self.c_isolated[city]== 1 else 1 
         elif act == 'hospital':
-            self.extra_hospital_beds[city] = not self.extra_hospital_beds[city]
+            self.extra_hospital_beds[city] = 0 if self.extra_hospital_beds[city]==1 else 1 
         elif act == 'vaccinate':
-            self.vaccinate[city] = not self.vaccinate[city]
+            self.vaccinate[city] =  1 if self.vaccinate[city]== 0 else 0
         return
 
     def start_epidemic(self,seed=10, sources=1, prop=0.01):
@@ -293,7 +293,7 @@ class ModelDynamics():
             new_exposed = stoch_alpha * (s * i  + sum_term)
             
             # vaccination
-            stoch_mu = self.vaccination_effectiveness[c]/self.map.nodes[c]['pop'] if self.vaccinate[c] else 0
+            stoch_mu = self.vaccination_effectiveness/self.map.nodes[c]['pop'] if self.vaccinate[c] else 0
             new_vaccinated = np.fmax(np.fmin(float(stoch_mu*s), float(stoch_mu)),0)
             
             # exposure to infection flow

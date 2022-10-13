@@ -29,7 +29,7 @@ class DQN(nn.Module):
         
  
     def forward(self, x):
-        x = self.fcn(x.flatten())
+        x = self.fcn(x.view(x.size(0),-1))
 
         x = self.dropout(x)
         return x
