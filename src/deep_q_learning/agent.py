@@ -28,7 +28,7 @@ class Agent():
         
     def __init__(self,  env, 
                         model, 
-                        criterion = nn.CrossEntropyLoss(),
+                        criterion = nn.HuberLoss(),
                         lr = 5e-4, 
                         epsilon = 0.5, 
                         gamma = 0.99,
@@ -83,7 +83,7 @@ class Agent():
         state_action_values = self.model(state_batch).gather(1, action_batch.unsqueeze(1))
 
         # Compute max_ap Q(Sp) with the stable target network
-        next_state_values = torch.round(self.targetModel(next_states_batch).detach().sigmoid())
+        next_state_values = self.targetModel(next_states_batch).max(1)[0].detach().unsqueeze(1)
         # Compute the expected Q values
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch
 
@@ -102,13 +102,15 @@ class Agent():
     def act(self, obs):
         x = torch.Tensor(obs)
         
+        epsilon = self.epsilon
         sample = random.random()
-        if sample > self.epsilon:
+        
+        action_distribution = self.model(x)
+        if sample > epsilon:
             with torch.no_grad():
-                action_distribution = self.model(x)
                 return np.argmax(
                     np.exp(action_distribution.numpy())
                     /np.sum(np.exp(action_distribution.numpy())
-                    ))
+                    )), action_distribution.numpy()
         else:
-            return self.env.action_space.sample()
+            return self.env.action_space.sample(),action_distribution.detach().numpy()

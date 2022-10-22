@@ -143,10 +143,11 @@ class CountryWideEnv(gym.Env):
         dead = 0
         conf = 0
         for city in self.dyn.cities:
-            dead +=  1e5 * obs_dict['city']['dead'][city][-1] 
-            conf +=  150 * int(self.dyn.c_confined[city])*obs_dict['pop'][city]
-        rew = (500 - dead - conf ) / (1e4 * self.dyn.total_pop)
-        return torch.Tensor([rew]).unsqueeze(0)
+            dead +=  10 * obs_dict['city']['dead'][city][-1]  / (self.dyn.total_pop)
+            conf +=  1.5 * int(self.dyn.c_confined[city])*obs_dict['pop'][city]  / (self.dyn.total_pop)
+        rew = 1 - dead - conf 
+        
+        return torch.Tensor([rew]).unsqueeze(0), dead, conf
 
     def get_obs(self, obs):
         infected = SCALE*np.array([np.array(obs['city']['infected'][c])/obs['pop'][c] for c in self.dyn.cities])
@@ -164,6 +165,23 @@ class CountryWideEnv(gym.Env):
         else:
             raise Exception('Not implemented yet')
 
+
+    def get_info(self):
+        if self.single_control:
+            return {
+                'parameters':self.dyn.epidemic_parameters(self.day),
+                'action': {
+                    'confinement': self.dyn.c_confined['Lausanne'] != 1,
+                    'isolation': False,
+                    'hospital': False,
+                    'vaccinate': False,
+                    },
+                'dead_cost': self.dead_cost,
+                'conf_cost': self.conf_cost,
+                }
+        else:
+            raise Exception('Not implemented yet')
+
     # Execute one time step within the environment
     def step(self, action):
         self.day += 1
@@ -172,16 +190,18 @@ class CountryWideEnv(gym.Env):
         _obs_dict = self.dyn.step()
         self.last_obs = self.get_obs(_obs_dict)
 
-        self.reward = self.compute_reward(c,_obs_dict)
+        self.reward, self.dead_cost, self.conf_cost = self.compute_reward(c,_obs_dict)
 
         self.total_reward += self.reward
         done = self.day >= self.ep_len
-        return self.last_obs, self.reward, done, {'parameters':self.dyn.epidemic_parameters(self.day)}
+        return self.last_obs, self.reward, done, self.get_info()
 
     # Reset the state of the environment to an initial state
     def reset(self, seed = None):
         self.day = 0
         self.total_reward = 0
+        self.dead_cost = 0
+        self.conf_cost = 0
         self.dyn.reset()
         if seed is None:
             self.dyn.start_epidemic(dt.now())
@@ -190,7 +210,7 @@ class CountryWideEnv(gym.Env):
             
         _obs_dict = self.dyn.step() # Eyo c'est un tuple ça
         self.last_obs = self.get_obs(_obs_dict)
-        return self.last_obs, {'parameters':self.dyn.epidemic_parameters(self.day)}
+        return self.last_obs, self.get_info()
 
     # Render the environment to the screen 
     def render(self, mode='human', close=False):

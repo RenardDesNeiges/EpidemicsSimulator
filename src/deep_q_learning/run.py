@@ -19,9 +19,10 @@ DEFAULT_PARAMS = {
     'reward_sample_rate' : 1,
     'viz_sample_rate' : 10,
     'num_episodes' : int(3e4),
-    'criterion' :  nn.MultiLabelSoftMarginLoss(),
-    'lr' :  5e-3, #5e-3,
-    'epsilon': 0.3, 
+    'criterion' :  nn.MSELoss(),
+    'lr' :  5e-3,
+    'epsilon': 0.7, 
+    'epsilon_decrease': 200, 
     'gamma': 0.99,
     'buffer_size': 10000, 
     'batch_size': 64
@@ -161,68 +162,88 @@ class CountryWideTrainer():
     def log_init(info, obs):
         info_hist = [info]
         obs_hist =  [obs]
-        return info_hist, obs_hist, 0
+        loss_hist = []
+        distrib_hist = []
+        return info_hist, obs_hist, loss_hist, distrib_hist
+    
+    def log_hist(info, obs, loss, distrib, info_hist, obs_hist, loss_hist, distrib_hist):
+        obs_hist.append(obs)
+        info_hist.append(info)
+        loss_hist.append(loss)
+        distrib_hist.append(distrib)
     
     @staticmethod
-    def tb_log(writer, episode, params, info_hist, obs_hist, info, obs_next,cumulative_reward,loss,cumulative_loss):
+    def tb_log(writer, episode, params, info_hist, obs_hist, info, obs_next,cumulative_reward,loss_hist,agent,distrib_hist):
         
         obs_hist.append(obs_next)
         info_hist.append(info)
-        cumulative_loss += loss
         if  episode%params['reward_sample_rate'] == params['reward_sample_rate']-1:
-            writer.add_scalar('Train/Reward', 
+            writer.add_scalar('Alg/Reward', 
                             float((cumulative_reward/params['reward_sample_rate'])[0,0]), episode)
-            writer.add_scalar('Train/Loss', 
-                            cumulative_loss/params['reward_sample_rate'], episode)
-            writer.add_scalar('Model/Deaths', 
+            writer.add_scalar('Alg/Loss', 
+                            np.mean(loss_hist), episode)
+            writer.add_scalar('Alg/mean_distrib', 
+                        np.mean(distrib_hist), episode)
+            writer.add_scalar('RewardShaping/dead_cost', 
+                            np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)
+            writer.add_scalar('RewardShaping/conf_cost', 
+                            np.mean([e['conf_cost'] for e in info_hist[:-1]]), episode)
+            writer.add_scalar('System/Deaths', 
                             info_hist[-1]['parameters'][0]['dead'], episode)
-            writer.add_scalar('Model/PeakInfection', 
+            writer.add_scalar('System/PeakInfection', 
                             np.max([e['parameters'][0]['infected'] for e in info_hist[:-1]]), episode)
-            writer.add_scalar('Model/Recovered', 
+            writer.add_scalar('System/Recovered', 
                             info_hist[-1]['parameters'][0]['recovered'], episode)
-            # writer.add_scalar('Model/ConfinedDays', 
-            #                 np.sum([np.sum(e['action']['confinement']) for e in info_hist[:-1]])*7, episode)
-            # writer.add_scalar('Model/IsolationDays', 
-            #                 np.sum([np.sum(e['action']['isolation']) for e in info_hist[:-1]])*7, episode)
-            # writer.add_scalar('Model/AdditionalHospitalDays', 
-            #                 np.sum([np.sum(e['action']['hospital']) for e in info_hist[:-1]])*7, episode)
-            # writer.add_scalar('Model/FreeVaccinationDays', 
-            #                 np.sum([np.sum(e['action']['vaccinate']) for e in info_hist[:-1]])*7, episode)
-        # if episode % 50 == 0:
-        #     print("episode {}, avg reward = {}".format(episode, float((cumulative_reward/params['reward_sample_rate'])[0,0])))
-        return cumulative_loss 
+            writer.add_scalar('System/ConfinedDays', 
+                            np.sum([np.sum(e['action']['confinement']) for e in info_hist[:-1]])*7, episode)
+            writer.add_scalar('System/IsolationDays', 
+                            np.sum([np.sum(e['action']['isolation']) for e in info_hist[:-1]])*7, episode)
+            writer.add_scalar('System/AdditionalHospitalDays', 
+                            np.sum([np.sum(e['action']['hospital']) for e in info_hist[:-1]])*7, episode)
+            writer.add_scalar('System/FreeVaccinationDays', 
+                            np.sum([np.sum(e['action']['vaccinate']) for e in info_hist[:-1]])*7, episode)
+
+        print("episode {}, avg reward = {}, epsilon = {}".format(episode, float((cumulative_reward/params['reward_sample_rate'])[0,0]), agent.epsilon))
     
     @staticmethod
     def train(env,agent,writer,params):
         
         for episode in range(params['num_episodes']):
+                    
+            if episode % params['target_update_rate'] == 0: 
+                agent.targetModel.load_state_dict(agent.model.state_dict())
+
+            if episode%params['viz_sample_rate'] == 0:  
+                agent.epsilon = 0
+            else: 
+                agent.epsilon = max(params['epsilon'] - params['epsilon'] * episode/params['epsilon_decrease'],0)
+            
             finished = False
             obs, info = env.reset()
-            obs_hist, info_hist, cumulative_loss = CountryWideTrainer.log_init(obs,info)
+            obs_hist, info_hist, loss_hist, distrib_hist = CountryWideTrainer.log_init(obs,info)
             
             while not finished:
-                action = agent.act(obs)
+                action, distrib = agent.act(obs)
                 obs_next, R, finished, info = env.step(action)
                 agent.memory.push(obs, action, obs_next, R)
-                if episode % params['target_update_rate'] == 0: # Target dict trick
-                    agent.targetModel.load_state_dict(agent.model.state_dict())
-                    
-                # TODO check that this doesn't mess with the actual learning
-                if episode%params['viz_sample_rate'] == 0:  agent.epsilon = 0
-                else: agent.epsilon = params['epsilon']
-                loss = agent.optimize_model()
                 
-                if params['log']: 
-                    cumulative_loss = CountryWideTrainer.tb_log( writer, episode, params, info_hist, obs_hist, info, obs_next,env.total_reward,loss,cumulative_loss)
+                loss = agent.optimize_model()
+                CountryWideTrainer.log_hist(info, obs_next, loss, distrib, info_hist, obs_hist, loss_hist,distrib_hist)
 
                 obs = obs_next
                 if finished:
                     break
+                            
+            if params['log']: 
+                CountryWideTrainer.tb_log( writer, episode, params, info_hist, obs_hist, info, obs_next,env.total_reward,loss_hist,agent, distrib_hist)
+                if episode%params['viz_sample_rate'] == 0:  
+                    CountryWideTrainer.render_log(writer,info_hist, episode)
+
 
         return None    
     
     @staticmethod
-    def run (params):
+    def run(params):
         
         logpath = LOG_FOLDER+params['run_name']
         

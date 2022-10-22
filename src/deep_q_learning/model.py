@@ -26,12 +26,12 @@ class DQN(nn.Module):
         lin_layers += [lin4]
         
         self.fcn = nn.Sequential(*lin_layers)
+        # self.out = nn.Sigmoid()
         
  
     def forward(self, x):
         x = self.fcn(x.view(x.size(0),-1))
-
-        x = self.dropout(x)
+        # x = self.out(x)
         return x
 
 
