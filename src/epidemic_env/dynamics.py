@@ -175,8 +175,43 @@ class ModelDynamics():
         }
         
         return total, cities
-            
     
+    """ Set the action variables in a given city
+    
+        Parameters :
+                act [dict] : a dict containing the following keys with boolean values
+                    confine [bool] : should the city be confined?
+                    isolate [bool] : should the city be isolated?
+                    vaccinate [bool] : should the city be vaccinated?
+                    hospital [bool] : should the city be given extra_hospital_beds?
+    
+    """
+    def set_action(self, act, city):
+
+        self.c_confined[city] = self.confinement_effectiveness if act['confinement']  else 1
+        self.c_isolated[city] = self.isolation_effectiveness if act['isolation'] else 1
+        self.extra_hospital_beds[city] = self.extra_hospital_effectiveness if act['hospital'] else 1
+        self.vaccinate[city] = self.vaccination_effectiveness if act['vaccinate'] else 0
+
+    
+         
+    """     Toggles the actions in a given city
+        
+        Parameters :
+                act [string] : the action to toggle
+                city [string] : the city in which to toggle that action
+    """ 
+    def toggle(self,act,city):
+        if act == 'confinement':
+            self.c_confined[city] = self.confinement_effectiveness if self.c_confined[city] == 1 else 1 
+        elif act == 'isolation':
+            self.c_isolated[city] = self.isolation_effectiveness if self.c_isolated[city]== 1 else 1 
+        elif act == 'hospital':
+            self.extra_hospital_beds[city] = self.extra_hospital_effectiveness if self.extra_hospital_beds[city]==1 else 1 
+        elif act == 'vaccinate':
+            self.vaccinate[city] =  self.vaccination_effectiveness if self.vaccinate[city]== 0 else 0
+        return
+
     """     Starts the epidemic (infects a given proportion 
             of the population in one or more randomly chosen cities)
         
@@ -188,18 +223,6 @@ class ModelDynamics():
         Returns : 
             None
     """ 
-
-    def toggle(self,act,city):
-        if act == 'confinement':
-            self.c_confined[city] = 0 if self.c_confined[city] == 1 else 1 
-        elif act == 'isolation':
-            self.c_isolated[city] =  0 if self.c_isolated[city]== 1 else 1 
-        elif act == 'hospital':
-            self.extra_hospital_beds[city] = 0 if self.extra_hospital_beds[city]==1 else 1 
-        elif act == 'vaccinate':
-            self.vaccinate[city] =  1 if self.vaccinate[city]== 0 else 0
-        return
-
     def start_epidemic(self,seed=10, sources=1, prop=0.01):
         rd.seed(seed)
         
@@ -208,15 +231,11 @@ class ModelDynamics():
             self.map.nodes[c]['e'] += prop
             self.map.nodes[c]['s'] -= prop
     
-    """ Perform one environment step
+
+    """ Perform one environment step (a week of dynamical system simulation)
         
-        Parameters : 
-            act [dict] : a dict containing actions to be performed this turn
-                    the dict must be structured as 
-                    confinement :   city,True/False
-                    isolation :     city,True/False
-                    hospital :      city,True/False
-                    vaccination :   True/False
+        Parameters :
+            //
 
         Returns : 
             obs [dict] : a dict containing observation from this step
