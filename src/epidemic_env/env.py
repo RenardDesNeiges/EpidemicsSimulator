@@ -56,11 +56,17 @@ class CountryWideEnv(gym.Env):
             dead = 0
             for city in self.dyn.cities:
                 if len(obs_dict['city']['dead'][city]) > 1:
-                    dead +=  4e4 * (obs_dict['city']['dead'][city][-1] - obs_dict['city']['dead'][city][-2] ) / (self.dyn.total_pop)
+                    dead +=  7e4 * (obs_dict['city']['dead'][city][-1] - obs_dict['city']['dead'][city][-2] ) / (self.dyn.total_pop)
                 else:
-                    dead +=  4e4 * obs_dict['city']['dead'][city][-1] / (self.dyn.total_pop)
+                    dead +=  7e4 * obs_dict['city']['dead'][city][-1] / (self.dyn.total_pop)
             return dead
                 
+        def compute_isolation_cost():
+            isol = 0
+            for city in self.dyn.cities:
+                isol +=  1.5 * int(self.dyn.c_isolated[city] == self.dyn.isolation_effectiveness)*obs_dict['pop'][city]  / (self.dyn.total_pop)
+            return isol
+                 
         def compute_confinement_cost():
             conf = 0
             for city in self.dyn.cities:
@@ -76,7 +82,7 @@ class CountryWideEnv(gym.Env):
             return announcement 
         
         def compute_vaccination_cost():
-            vacc = int(self.dyn.vaccinate['Lausanne'] != 0) * 0.15
+            vacc = int(self.dyn.vaccinate['Lausanne'] != 0) * 0.08
             return vacc
 
         def compute_hospital_cost():
@@ -95,9 +101,10 @@ class CountryWideEnv(gym.Env):
         elif self.mode == 'multi':
             ann = compute_annoucement_cost()
             vacc = compute_vaccination_cost()
+            isol = compute_isolation_cost()
             hosp = compute_hospital_cost()
             rew = 3 - dead - conf - ann - vacc - hosp
-            return torch.Tensor([rew]).unsqueeze(0), dead, conf, ann, vacc, hosp
+            return torch.Tensor([rew]).unsqueeze(0), dead, conf, ann, vacc, hosp, isol
         else:
             raise Exception(NotImplemented)
 
@@ -169,10 +176,10 @@ class CountryWideEnv(gym.Env):
         info = {
                 'parameters':self.dyn.epidemic_parameters(self.day),
                 'action': {
-                    'confinement': self.dyn.c_confined['Lausanne'] != 1,
-                    'isolation': False,
-                    'hospital': False,
-                    'vaccinate': False,
+                    'confinement': (self.dyn.c_confined['Lausanne'] != 1),
+                    'isolation': (self.dyn.c_isolated['Lausanne'] != 1),
+                    'vaccinate': (self.dyn.vaccinate['Lausanne'] != 0),
+                    'hospital': (self.dyn.extra_hospital_beds['Lausanne'] != 1),
                     },
                 'dead_cost': self.dead_cost,
                 'conf_cost': self.conf_cost,
@@ -204,7 +211,7 @@ class CountryWideEnv(gym.Env):
         elif self.mode=='toggle':
             self.reward, self.dead_cost, self.conf_cost, self.ann_cost = self.compute_reward(c,_obs_dict)
         elif self.mode=='multi':
-            self.reward, self.dead_cost, self.conf_cost, self.ann_cost, self.vacc_cost, self.hosp_cost = self.compute_reward(c,_obs_dict)
+            self.reward, self.dead_cost, self.conf_cost, self.ann_cost, self.vacc_cost, self.hosp_cost, self.isol = self.compute_reward(c,_obs_dict)
         else:
             raise Exception(NotImplemented)
         
@@ -225,6 +232,7 @@ class CountryWideEnv(gym.Env):
             self.ann_cost = 0
             self.vacc_cost = 0
             self.hosp_cost = 0
+            self.isol = 0   
         self.dyn.reset()
         if seed is None:
             self.dyn.start_epidemic(dt.now())

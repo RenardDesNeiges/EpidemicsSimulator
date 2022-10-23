@@ -10,62 +10,99 @@ from copy import deepcopy
 
 LOG_FOLDER = 'runs/'
 
-COUNTRY_WIDE_BINARY = {
-    'log' : True,
-    'mode' : 'binary',
-    'run_name' : 'country_wide_binary_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
-    'env_config' : 'config/switzerland.yaml',
-    'model' : 'DQN', 
-    'target_update_rate' : 5,
-    'reward_sample_rate' : 1,
-    'viz_sample_rate' : 10,
-    'num_episodes' : int(3e4),
-    'criterion' :  nn.HuberLoss(),
-    'lr' :  5e-3,
-    'epsilon': 0.7, 
-    'epsilon_decrease': 200, 
-    'gamma': 0.7,
-    'buffer_size': 10000, 
-    'batch_size': 512,
+PARAMS = {   
+    'COUNTRY_WIDE_BINARY' : {
+        'log' : True,
+        'mode' : 'binary',
+        'run_name' : 'country_wide_binary_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'env_config' : 'config/switzerland.yaml',
+        'model' : 'DQN', 
+        'target_update_rate' : 5,
+        'reward_sample_rate' : 1,
+        'viz_sample_rate' : 10,
+        'num_episodes' : 300,
+        'criterion' :  nn.HuberLoss(),
+        'lr' :  5e-3,
+        'epsilon': 0.7, 
+        'epsilon_decrease': 200, 
+        'gamma': 0.7,
+        'buffer_size': 10000, 
+        'batch_size': 512,
+    },
+    'COUNTRY_WIDE_BINARY_TOGGLE' : {
+        'log' : True,
+        'mode' : 'toggle',
+        'run_name' : 'country_wide_binary_toggle_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'env_config' : 'config/switzerland.yaml',
+        'model' : 'DQN', 
+        'target_update_rate' : 5,
+        'reward_sample_rate' : 1,
+        'viz_sample_rate' : 10,
+        'num_episodes' : 300,
+        'criterion' :  nn.HuberLoss(),
+        'lr' :  5e-3,
+        'epsilon': 0.7, 
+        'epsilon_decrease': 200, 
+        'gamma': 0.7,
+        'buffer_size': 10000, 
+        'batch_size': 512
+    },
+    'COUNTRY_WIDE_MULTI_TOGGLE' : {
+        'log' : True,
+        'mode' : 'multi',
+        'run_name' : 'country_wide_multiaction_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'env_config' : 'config/switzerland.yaml',
+        'model' : 'DQN', 
+        'target_update_rate' : 5,
+        'reward_sample_rate' : 1,
+        'viz_sample_rate' : 10,
+        'num_episodes' : 600,
+        'criterion' :  nn.HuberLoss(),
+        'lr' :  5e-3,
+        'epsilon': 0.7, 
+        'epsilon_decrease': 550, 
+        'gamma': 0.9,
+        'buffer_size': 10000, 
+        'batch_size': 512
+    },
+    'DECENTRALIZED_BINARY' : {
+        'log' : True,
+        'mode' : 'binary',
+        'run_name' : 'decentralized_binary_agents' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'env_config' : 'config/switzerland.yaml',
+        'model' : 'DQN', 
+        'target_update_rate' : 5,
+        'reward_sample_rate' : 1,
+        'viz_sample_rate' : 10,
+        'num_episodes' : 300,
+        'criterion' :  nn.HuberLoss(),
+        'lr' :  5e-3,
+        'epsilon': 0.7, 
+        'epsilon_decrease': 200, 
+        'gamma': 0.7,
+        'buffer_size': 10000, 
+        'batch_size': 512,
+    },
 }
 
-COUNTRY_WIDE_BINARY_TOGGLE = {
-    'log' : True,
-    'mode' : 'toggle',
-    'run_name' : 'country_wide_binary_toggle_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
-    'env_config' : 'config/switzerland.yaml',
-    'model' : 'DQN', 
-    'target_update_rate' : 5,
-    'reward_sample_rate' : 1,
-    'viz_sample_rate' : 10,
-    'num_episodes' : int(3e4),
-    'criterion' :  nn.HuberLoss(),
-    'lr' :  5e-3,
-    'epsilon': 0.7, 
-    'epsilon_decrease': 200, 
-    'gamma': 0.7,
-    'buffer_size': 10000, 
-    'batch_size': 512
-}
 
-COUNTRY_WIDE_MULTI_TOGGLE = {
-    'log' : True,
-    'mode' : 'multi',
-    'run_name' : 'country_wide_binary_toggle_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
-    'env_config' : 'config/switzerland.yaml',
-    'model' : 'DQN', 
-    'target_update_rate' : 5,
-    'reward_sample_rate' : 1,
-    'viz_sample_rate' : 10,
-    'num_episodes' : int(3e4),
-    'criterion' :  nn.HuberLoss(),
-    'lr' :  5e-3,
-    'epsilon': 0.7, 
-    'epsilon_decrease': 200, 
-    'gamma': 0.7,
-    'buffer_size': 10000, 
-    'batch_size': 512
-}
+def getTrainer(name):
+    if name == 'CountryWideTrainer':
+        return CountryWideTrainer
+    elif name == 'DistributedTrainer':
+        return DistributedTrainer
+    else:
+        raise ValueError('Invalid trainer object!')
+
+def getParams(name):
+    if name not in PARAMS.keys():
+        raise ValueError('Invalid Parameters')
+    else:
+        return PARAMS[name]
+
+class DistributedTrainer:
+    def __init__(self,):
+        pass
 
 class CountryWideTrainer():
     
@@ -137,8 +174,6 @@ class CountryWideTrainer():
                             np.sum([np.sum(e['action']['hospital']) for e in info_hist[:-1]])*7, episode)
             writer.add_scalar('System/FreeVaccinationDays', 
                             np.sum([np.sum(e['action']['vaccinate']) for e in info_hist[:-1]])*7, episode)
-
-        print("episode {}, avg reward = {}, epsilon = {}".format(episode,np.mean(R_hist), agent.epsilon))
     
     @staticmethod
     def train(env,agent,writer,params):
@@ -168,7 +203,8 @@ class CountryWideTrainer():
                 obs = obs_next
                 if finished:
                     break
-                            
+            
+            print("episode {}, avg reward = {}, epsilon = {}".format(episode,np.mean(R_hist), agent.epsilon))
             if params['log']: 
                 CountryWideTrainer.tb_log( writer, episode, params, R_hist, info_hist, obs_hist, info, obs_next,loss_hist,agent, Q_hist)
                 if episode%params['viz_sample_rate'] == 0:  
