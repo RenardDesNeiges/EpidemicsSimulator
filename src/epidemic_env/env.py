@@ -75,9 +75,9 @@ class CountryWideEnv(gym.Env):
         
         def compute_annoucement_cost():
             announcement = 0 
-            if not (self.dyn.c_confined[city] == self.dyn.confinement_effectiveness) and self.last_action == ACTION_CONFINE:
+            if not (self.dyn.c_confined['Lausanne'] == self.dyn.confinement_effectiveness) and self.last_action == ACTION_CONFINE:
                 announcement = 2
-            if not (self.dyn.c_isolated[city] == self.dyn.isolation_effectiveness) and self.last_action == ACTION_ISOLATE: 
+            if not (self.dyn.c_isolated['Lausanne'] == self.dyn.isolation_effectiveness) and self.last_action == ACTION_ISOLATE: 
                 announcement = 2
             return announcement 
         
@@ -292,23 +292,24 @@ class DistributedEnv(gym.Env):
         
         def compute_death_cost():
             if len(obs_dict['city']['dead'][city]) > 1:
-                dead =  7e4 * (obs_dict['city']['dead'][city][-1] - obs_dict['city']['dead'][city][-2] ) / (self.dyn.total_pop)
+                dead =  7e4 *  (obs_dict['city']['dead'][city][-1] - obs_dict['city']['dead'][city][-2] ) / (self.dyn.map.nodes[city]['pop'])
             else:
-                dead =  7e4 * obs_dict['city']['dead'][city][-1] / (self.dyn.total_pop)
+                dead =  7e4 * obs_dict['city']['dead'][city][-1] / ((self.dyn.map.nodes[city]['pop']))
             return dead
                 
         def compute_isolation_cost():
-            isol =  1.5 * int(self.dyn.c_isolated[city] == self.dyn.isolation_effectiveness)*obs_dict['pop'][city]  / (self.dyn.total_pop)
+            isol =  1.5 * int(self.dyn.c_isolated[city] == self.dyn.isolation_effectiveness)*obs_dict['pop'][city]  / ((self.dyn.map.nodes[city]['pop']))
             return isol
                  
         def compute_confinement_cost():
-            conf =  2 * int(self.dyn.c_confined[city] == self.dyn.confinement_effectiveness)*obs_dict['pop'][city]  / (self.dyn.total_pop)
+            conf =  2 * int(self.dyn.c_confined[city] == self.dyn.confinement_effectiveness)*obs_dict['pop'][city]  / ((self.dyn.map.nodes[city]['pop']))
             return conf
         
         def compute_annoucement_cost():
-            if not (self.dyn.c_confined[city] == self.dyn.confinement_effectiveness) and self.last_action == ACTION_CONFINE:
+            announcement = 0
+            if not (self.dyn.c_confined[city] == self.dyn.confinement_effectiveness) and self.last_action[city] == ACTION_CONFINE:
                 announcement = 2
-            if not (self.dyn.c_isolated[city] == self.dyn.isolation_effectiveness) and self.last_action == ACTION_ISOLATE: 
+            if not (self.dyn.c_isolated[city] == self.dyn.isolation_effectiveness) and self.last_action[city] == ACTION_ISOLATE: 
                 announcement = 2
             return announcement 
         
@@ -343,27 +344,29 @@ class DistributedEnv(gym.Env):
         if self.mode == 'binary':
             infected = SCALE*np.array([np.array(obs['city']['infected'][c])/obs['pop'][c] for c in self.dyn.cities])
             dead = SCALE*np.array([np.array(obs['city']['dead'][c])/obs['pop'][c] for c in self.dyn.cities])
-            return torch.Tensor(np.stack((infected,dead))).unsqueeze(0)
+            return {c:torch.Tensor(np.stack((infected,dead))).unsqueeze(0) for c in self.dyn.cities}
         elif self.mode == 'toggle':
             infected = SCALE*np.array([np.array(obs['city']['infected'][c])/obs['pop'][c] for c in self.dyn.cities])
             dead = SCALE*np.array([np.array(obs['city']['dead'][c])/obs['pop'][c] for c in self.dyn.cities])
-            confined = np.ones_like(dead)*int((self.dyn.c_confined['Lausanne'] != 1))
-            return torch.Tensor(np.stack((infected,dead,confined))).unsqueeze(0)
+            confined = {c:np.ones_like(dead)*int((self.dyn.c_confined[c] != 1)) for c in self.dyn.cities}
+            return {c:torch.Tensor(np.stack((infected,dead,confined[c]))).unsqueeze(0) for c in self.dyn.cities}
         elif self.mode == 'multi':
             infected = SCALE*np.array([np.array(obs['city']['infected'][c])/obs['pop'][c] for c in self.dyn.cities])
             dead = SCALE*np.array([np.array(obs['city']['dead'][c])/obs['pop'][c] for c in self.dyn.cities])
-            self_obs =  np.concatenate((
-                np.ones((1,7)) * int((self.dyn.c_confined['Lausanne'] != 1)),
-                np.ones((1,7)) * int((self.dyn.c_isolated['Lausanne'] != 1)),
-                np.ones((1,7)) * int((self.dyn.vaccinate['Lausanne'] != 0)),
-                np.ones((1,7)) * int((self.dyn.extra_hospital_beds['Lausanne'] != 1)),
-                np.zeros((5,7))
-            ))
-            return torch.Tensor(np.stack((infected,dead,self_obs))).unsqueeze(0)
+            self_obs =  {
+                c:np.concatenate((
+                    np.ones((1,7)) * int((self.dyn.c_confined['Lausanne'] != 1)),
+                    np.ones((1,7)) * int((self.dyn.c_isolated['Lausanne'] != 1)),
+                    np.ones((1,7)) * int((self.dyn.vaccinate['Lausanne'] != 0)),
+                    np.ones((1,7)) * int((self.dyn.extra_hospital_beds['Lausanne'] != 1)),
+                    np.zeros((5,7))
+                )) for c in self.dyn.cities
+            }
+            return {c:torch.Tensor(np.stack((infected,dead,self_obs[c]))).unsqueeze(0) for c in self.dyn.cities}
         else:
             raise Exception(NotImplemented)
 
-    def parse_action(self,a):
+    def parse_action(self,a,city):
         if self.mode == 'binary':
             return {
                 'confinement': a==1,
@@ -372,7 +375,7 @@ class DistributedEnv(gym.Env):
                 'vaccinate': False,
             }
         elif self.mode == 'toggle':
-            conf = (self.dyn.c_confined['Lausanne'] != 1)
+            conf = (self.dyn.c_confined[city] != 1)
             if a == ACTION_CONFINE :
                 conf = not conf
             return {
@@ -382,10 +385,10 @@ class DistributedEnv(gym.Env):
                 'vaccinate': False,
             }
         elif self.mode == 'multi':
-            conf = (self.dyn.c_confined['Lausanne'] != 1)
-            isol = (self.dyn.c_isolated['Lausanne'] != 1)
-            vacc = (self.dyn.vaccinate['Lausanne'] != 0)
-            hosp = (self.dyn.extra_hospital_beds['Lausanne'] != 1)
+            conf = (self.dyn.c_confined[city] != 1)
+            isol = (self.dyn.c_isolated[city] != 1)
+            vacc = (self.dyn.vaccinate[city] != 0)
+            hosp = (self.dyn.extra_hospital_beds[city] != 1)
             if a == ACTION_CONFINE:
                 conf = not conf
             elif a == ACTION_ISOLATE:
@@ -434,7 +437,7 @@ class DistributedEnv(gym.Env):
         self.day += 1
         self.last_actions = actions
         for c in self.dyn.cities:
-            self.dyn.set_action(self.parse_action(actions[c][0]),c)
+            self.dyn.set_action(self.parse_action(actions[c][0],c),c)
         _obs_dict = self.dyn.step()
         self.last_obs = self.get_obs(_obs_dict)
 
@@ -448,8 +451,15 @@ class DistributedEnv(gym.Env):
                 self.dead_cost += dead_cost
                 self.conf_cost += conf_cost
         elif self.mode=='toggle':
-            raise Exception(NotImplemented)
-            self.rewards, self.dead_cost, self.conf_cost, self.ann_cost = self.compute_reward(c,_obs_dict)
+            self.ann_cost = 0
+            self.dead_cost = 0
+            self.conf_cost = 0
+            for c in self.dyn.cities:
+                reward, dead_cost, conf_cost, ann_cost = self.compute_reward(c,_obs_dict)
+                self.rewards[c] = reward
+                self.dead_cost += dead_cost
+                self.conf_cost += conf_cost
+                self.ann_cost += ann_cost
         elif self.mode=='multi':
             raise Exception(NotImplemented)
             self.rewards, self.dead_cost, self.conf_cost, self.ann_cost, self.vacc_cost, self.hosp_cost, self.isol = self.compute_reward(c,_obs_dict)
@@ -462,7 +472,7 @@ class DistributedEnv(gym.Env):
 
     # Reset the state of the environment to an initial state
     def reset(self, seed = None):
-        self.last_action = 0
+        self.last_action = {c:0 for c in self.dyn.cities}
         self.day = 0
         self.total_reward = 0
         self.dead_cost = 0

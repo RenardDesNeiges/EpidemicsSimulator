@@ -83,6 +83,24 @@ PARAMS = {
         'buffer_size': 10000, 
         'batch_size': 512,
     },
+    'DISTRIBUTED_BINARY_TOGGLE' : {
+        'log' : True,
+        'mode' : 'toggle',
+        'run_name' : 'decentralized_binary_toggled_agents' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'env_config' : 'config/switzerland.yaml',
+        'model' : 'DQN', 
+        'target_update_rate' : 5,
+        'reward_sample_rate' : 1,
+        'viz_sample_rate' : 10,
+        'num_episodes' : 300,
+        'criterion' :  nn.HuberLoss(),
+        'lr' :  5e-3,
+        'epsilon': 0.7, 
+        'epsilon_decrease': 200, 
+        'gamma': 0.7,
+        'buffer_size': 10000, 
+        'batch_size': 512,
+    },
 }
 
 
@@ -132,7 +150,6 @@ class DistributedTrainer():
     @staticmethod
     def tb_log(writer, episode, params,R_hist, info_hist, obs_hist, info, obs_next,loss_hist,agents,Q_hist):
         
-        obs_hist.append(obs_next)
         info_hist.append(info)
         if  episode%params['reward_sample_rate'] == params['reward_sample_rate']-1:
             writer.add_scalar('Alg/Avg_Reward', 
@@ -164,13 +181,13 @@ class DistributedTrainer():
             writer.add_scalar('System/Recovered', 
                             info_hist[-1]['parameters'][0]['recovered'], episode)
             writer.add_scalar('System/ConfinedDays', 
-                            np.sum([np.sum([int(c) for c in list(e['action']['confinement'].values())]) for e in info_hist[:-1]])*7, episode)
+                            np.sum([np.sum([int(c) for c in list(e['action']['confinement'].values())]) for e in info_hist[:-1]])*(7/9), episode)
             writer.add_scalar('System/IsolationDays', 
-                            np.sum([np.sum([int(c) for c in list(e['action']['isolation'].values())]) for e in info_hist[:-1]])*7, episode)
+                            np.sum([np.sum([int(c) for c in list(e['action']['isolation'].values())]) for e in info_hist[:-1]])*(7/9), episode)
             writer.add_scalar('System/AdditionalHospitalDays', 
-                            np.sum([np.sum([int(c) for c in list(e['action']['hospital'].values())]) for e in info_hist[:-1]])*7, episode)
+                            np.sum([np.sum([int(c) for c in list(e['action']['hospital'].values())]) for e in info_hist[:-1]])*(7/9), episode)
             writer.add_scalar('System/FreeVaccinationDays', 
-                            np.sum([np.sum([int(c) for c in list(e['action']['vaccinate'].values())]) for e in info_hist[:-1]])*7, episode)
+                            np.sum([np.sum([int(c) for c in list(e['action']['vaccinate'].values())]) for e in info_hist[:-1]])*(7/9), episode)
     
     @staticmethod
     def train(env,agents,writer,params):
@@ -193,11 +210,10 @@ class DistributedTrainer():
             R_hist, obs_hist, info_hist, loss_hist, Q_hist = DistributedTrainer.log_init(obs,info)
             
             while not finished:
-                _actions = {c:agent.act(obs) for (c,agent) in agents.items()}
+                _actions = {c:agent.act(obs[c]) for (c,agent) in agents.items()}
                 obs_next, R, finished, info = env.step(_actions)
                 for c in env.dyn.cities:
-                    # TODO : double check the passing of the action in memory
-                    agents[c].memory.push(obs, _actions[c][0], obs_next, R[c])
+                    agents[c].memory.push(obs[c], _actions[c][0], obs_next[c], R[c])
                 
                 _losses = {c:agent.optimize_model() for (c,agent) in agents.items()}
                 DistributedTrainer.log_hist(R,info, obs_next, _losses, _actions,R_hist, info_hist, obs_hist, loss_hist,Q_hist)
