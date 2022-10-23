@@ -101,6 +101,24 @@ PARAMS = {
         'buffer_size': 10000, 
         'batch_size': 512,
     },
+    'DISTRIBUTED_MULTI_TOGGLE' : {
+        'log' : True,
+        'mode' : 'multi',
+        'run_name' : 'decentralized_multiaction_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'env_config' : 'config/switzerland.yaml',
+        'model' : 'DQN', 
+        'target_update_rate' : 5,
+        'reward_sample_rate' : 1,
+        'viz_sample_rate' : 10,
+        'num_episodes' : 600,
+        'criterion' :  nn.HuberLoss(),
+        'lr' :  5e-3,
+        'epsilon': 0.7, 
+        'epsilon_decrease': 550, 
+        'gamma': 0.9,
+        'buffer_size': 10000, 
+        'batch_size': 512
+    },
 }
 
 

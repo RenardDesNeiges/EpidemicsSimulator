@@ -314,11 +314,11 @@ class DistributedEnv(gym.Env):
             return announcement 
         
         def compute_vaccination_cost():
-            vacc = int(self.dyn.vaccinate['Lausanne'] != 0) * 0.08
+            vacc = int(self.dyn.vaccinate[city] != 0) * 0.08
             return vacc
 
         def compute_hospital_cost():
-            hosp = (self.dyn.extra_hospital_beds['Lausanne'] != 1)*1
+            hosp = (self.dyn.extra_hospital_beds[city] != 1)*1
             return hosp
         
         dead = compute_death_cost()
@@ -355,10 +355,10 @@ class DistributedEnv(gym.Env):
             dead = SCALE*np.array([np.array(obs['city']['dead'][c])/obs['pop'][c] for c in self.dyn.cities])
             self_obs =  {
                 c:np.concatenate((
-                    np.ones((1,7)) * int((self.dyn.c_confined['Lausanne'] != 1)),
-                    np.ones((1,7)) * int((self.dyn.c_isolated['Lausanne'] != 1)),
-                    np.ones((1,7)) * int((self.dyn.vaccinate['Lausanne'] != 0)),
-                    np.ones((1,7)) * int((self.dyn.extra_hospital_beds['Lausanne'] != 1)),
+                    np.ones((1,7)) * int((self.dyn.c_confined[c] != 1)),
+                    np.ones((1,7)) * int((self.dyn.c_isolated[c] != 1)),
+                    np.ones((1,7)) * int((self.dyn.vaccinate[c] != 0)),
+                    np.ones((1,7)) * int((self.dyn.extra_hospital_beds[c] != 1)),
                     np.zeros((5,7))
                 )) for c in self.dyn.cities
             }
@@ -411,9 +411,9 @@ class DistributedEnv(gym.Env):
                 'parameters':self.dyn.epidemic_parameters(self.day),
                 'action': {
                     'confinement': {c:(self.dyn.c_confined[c] != 1) for c in self.dyn.cities},
-                    'isolation': {c:(self.dyn.c_isolated['Lausanne'] != 1) for c in self.dyn.cities},
-                    'vaccinate': {c:(self.dyn.vaccinate['Lausanne'] != 0) for c in self.dyn.cities},
-                    'hospital': {c:(self.dyn.extra_hospital_beds['Lausanne'] != 1) for c in self.dyn.cities},
+                    'isolation': {c:(self.dyn.c_isolated[c] != 1) for c in self.dyn.cities},
+                    'vaccinate': {c:(self.dyn.vaccinate[c] != 0) for c in self.dyn.cities},
+                    'hospital': {c:(self.dyn.extra_hospital_beds[c] != 1) for c in self.dyn.cities},
                     },
                 'dead_cost': self.dead_cost,
                 'conf_cost': self.conf_cost,
@@ -460,9 +460,27 @@ class DistributedEnv(gym.Env):
                 self.dead_cost += dead_cost
                 self.conf_cost += conf_cost
                 self.ann_cost += ann_cost
+                
         elif self.mode=='multi':
-            raise Exception(NotImplemented)
-            self.rewards, self.dead_cost, self.conf_cost, self.ann_cost, self.vacc_cost, self.hosp_cost, self.isol = self.compute_reward(c,_obs_dict)
+            self.ann_cost = 0
+            self.dead_cost = 0
+            self.conf_cost = 0
+            self.vacc = 0
+            self.hosp = 0
+            self.isol = 0
+            
+            for c in self.dyn.cities:
+                
+                reward, dead_cost, conf_cost, ann_cost, vacc, hosp, isol = self.compute_reward(c,_obs_dict)
+                
+                self.rewards[c] = reward
+                self.dead_cost += dead_cost
+                self.conf_cost += conf_cost
+                self.ann_cost += ann_cost
+                self.vacc += vacc
+                self.hosp += hosp
+                self.isol += isol
+                
         else:
             raise Exception(NotImplemented)
         
