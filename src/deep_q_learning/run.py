@@ -10,16 +10,36 @@ from copy import deepcopy
 
 LOG_FOLDER = 'runs/'
 
-DEFAULT_PARAMS = {
+COUNTRY_WIDE_BINARY = {
     'log' : True,
-    'run_name' : 'default' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+    'mode' : 'binary',
+    'run_name' : 'country_wide_binary_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
     'env_config' : 'config/switzerland.yaml',
     'model' : 'DQN', 
     'target_update_rate' : 5,
     'reward_sample_rate' : 1,
     'viz_sample_rate' : 10,
     'num_episodes' : int(3e4),
-    'criterion' :  nn.MSELoss(),
+    'criterion' :  nn.HuberLoss(),
+    'lr' :  5e-3,
+    'epsilon': 0.7, 
+    'epsilon_decrease': 200, 
+    'gamma': 0.7,
+    'buffer_size': 10000, 
+    'batch_size': 512,
+}
+
+COUNTRY_WIDE_BINARY_TOGGLE = {
+    'log' : True,
+    'mode' : 'toggle',
+    'run_name' : 'country_wide_binary_toggle_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+    'env_config' : 'config/switzerland.yaml',
+    'model' : 'DQN', 
+    'target_update_rate' : 5,
+    'reward_sample_rate' : 1,
+    'viz_sample_rate' : 10,
+    'num_episodes' : int(3e4),
+    'criterion' :  nn.HuberLoss(),
     'lr' :  5e-3,
     'epsilon': 0.7, 
     'epsilon_decrease': 200, 
@@ -155,10 +175,10 @@ class CountryWideTrainer():
         print('Logging image')
         policy_img = Visualize.render_episode_country(hist).transpose(2,0,1)
         state_img = Visualize.render_episode_fullstate(hist).transpose(2,0,1)
-        cities_img = Visualize.render_episode_citystate(hist).transpose(2,0,1)
+        cities_img = Visualize.render_episode_city(hist).transpose(2,0,1)
         writer.add_image(f'Episode/PolicyView', policy_img, episode)
         writer.add_image(f'Episode/StateView', state_img, episode)
-        pass
+        writer.add_image(f'Episode/CityView', cities_img, episode)
     
     @staticmethod
     def log_init(info, obs):
@@ -177,7 +197,7 @@ class CountryWideTrainer():
         Q_hist.append(distrib)
     
     @staticmethod
-    def tb_log(writer, episode, params,R_hist, info_hist, obs_hist, info, obs_next,cumulative_reward,loss_hist,agent,Q_hist):
+    def tb_log(writer, episode, params,R_hist, info_hist, obs_hist, info, obs_next,loss_hist,agent,Q_hist):
         
         obs_hist.append(obs_next)
         info_hist.append(info)
@@ -194,6 +214,9 @@ class CountryWideTrainer():
                             np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)
             writer.add_scalar('RewardShaping/conf_cost', 
                             np.mean([e['conf_cost'] for e in info_hist[:-1]]), episode)
+            if params['mode'] == 'toggle':
+                writer.add_scalar('RewardShaping/ann_cost', 
+                            np.mean([e['ann_cost'] for e in info_hist[:-1]]), episode)
             writer.add_scalar('RewardShaping/conf_dead_ration', 
                             np.mean([e['conf_cost'] for e in info_hist[:-1]])/np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)
             writer.add_scalar('System/Deaths', 
@@ -243,7 +266,7 @@ class CountryWideTrainer():
                     break
                             
             if params['log']: 
-                CountryWideTrainer.tb_log( writer, episode, params, R_hist, info_hist, obs_hist, info, obs_next,env.total_reward,loss_hist,agent, Q_hist)
+                CountryWideTrainer.tb_log( writer, episode, params, R_hist, info_hist, obs_hist, info, obs_next,loss_hist,agent, Q_hist)
                 if episode%params['viz_sample_rate'] == 0:  
                     CountryWideTrainer.render_log(writer,info_hist, episode)
 
@@ -253,9 +276,12 @@ class CountryWideTrainer():
     @staticmethod
     def run(params):
         
+        if not params['log']:
+            print('WARNING LOGGING IS NOT ENABLED, NO TB LOGS OF THE EXPERIMENT WILL BE SAVED')
+        
         logpath = LOG_FOLDER+params['run_name']
         
-        env = CountryWideEnv(params['env_config'])
+        env = CountryWideEnv(params['env_config'], mode=params['mode'])
         if hasattr(models, params['model']):
             model = getattr(models, params['model'])
         else:
@@ -274,6 +300,8 @@ class CountryWideTrainer():
         
         if params['log']:
             writer = SummaryWriter(log_dir=logpath)
-        
+        else:
+            writer = None
+
         CountryWideTrainer.train(env,agent,writer,params)
         

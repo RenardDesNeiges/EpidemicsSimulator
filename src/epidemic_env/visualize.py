@@ -95,3 +95,23 @@ class Visualize():
         
         fig.tight_layout()
         return fig_2_numpy(fig)
+
+    @staticmethod 
+    def render_episode_city(info_hist):
+        
+        plt.close('all')
+
+        cities = list(info_hist[0]['parameters'][1].keys())
+        fig, ax = plt.subplots(len(cities), 1, figsize=(9,9))
+
+        for _id,city in enumerate(cities):    
+            c_infected = np.array([ e['parameters'][1][city]['infected'] for e in info_hist[0:-1]])
+            c_dead =  np.array([ e['parameters'][1][city]['dead'] for e in info_hist[0:-1]])
+
+            ax[_id].plot(c_infected)
+            ax[_id].plot(c_dead)
+            ax[_id].legend(['infected', 'dead'])
+
+        fig.tight_layout()
+        
+        return fig_2_numpy(fig)

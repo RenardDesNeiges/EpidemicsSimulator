@@ -110,36 +110,35 @@ class EpidemicEnv(gym.Env):
 class CountryWideEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, source_file, ep_len=100, single_control=True):
+    def __init__(self, source_file, ep_len=100, mode='binary'):
         super(CountryWideEnv, self).__init__()    
         
         self.ep_len = ep_len
-        self.single_control = single_control
         self.dyn = ModelDynamics(source_file) # create the dynamical model
+        self.mode = mode
         
-        if single_control:
+        if self.mode == 'toggle':
             self.action_space = spaces.Discrete(2)
             self.observation_space = spaces.Box(
-                            low=0, 
-                            high=1, 
-                            shape=(2, self.dyn.n_cities, self.dyn.env_step_length), 
-                            dtype=np.float16)
-        else:
-            N_DISCRETE_ACTIONS = 5 #4#2**4
-            self.action_space = spaces.Discrete(N_DISCRETE_ACTIONS) # toggle behavior
+                low=0, 
+                high=1, 
+                shape=(3, self.dyn.n_cities, self.dyn.env_step_length),
+                dtype=np.float16)
+        elif self.mode == 'binary':
+            self.action_space = spaces.Discrete(2)
             self.observation_space = spaces.Box(
-                            low=0, 
-                            high=1, 
-                            shape=(3, self.dyn.n_cities, self.dyn.env_step_length), 
-                            dtype=np.float16)
+                low=0, 
+                high=1, 
+                shape=(2, self.dyn.n_cities, self.dyn.env_step_length), 
+                dtype=np.float16)
+        else:
+            raise Exception(NotImplemented)
 
-
-        
         self.reward = torch.Tensor([0]).unsqueeze(0)
         self.reset()
     
 
-    def compute_reward(self, city, obs_dict): # TODO fix that so that the full country is taken into account
+    def compute_reward(self, city, obs_dict):
         dead = 0
         conf = 0
         for city in self.dyn.cities:
@@ -148,29 +147,57 @@ class CountryWideEnv(gym.Env):
             else:
                 dead +=  4e4 * obs_dict['city']['dead'][city][-1] / (self.dyn.total_pop)
             conf +=  2 * int(self.dyn.c_confined[city] == self.dyn.confinement_effectiveness)*obs_dict['pop'][city]  / (self.dyn.total_pop)
-        rew = 3 - dead - conf 
         
-        return torch.Tensor([rew]).unsqueeze(0), dead, conf
+        
+        if self.mode == 'toggle':
+            if not (self.dyn.c_confined[city] == self.dyn.confinement_effectiveness) and self.last_action == 1:
+                announcement = 0.7
+            else:
+                announcement = 0 
+            rew = 3 - dead - conf - announcement
+            return torch.Tensor([rew]).unsqueeze(0), dead, conf, announcement
+        elif self.mode == 'binary':
+            rew = 3 - dead - conf 
+            return torch.Tensor([rew]).unsqueeze(0), dead, conf
+        else:
+            raise Exception(NotImplemented)
 
     def get_obs(self, obs):
-        infected = SCALE*np.array([np.array(obs['city']['infected'][c])/obs['pop'][c] for c in self.dyn.cities])
-        dead = SCALE*np.array([np.array(obs['city']['dead'][c])/obs['pop'][c] for c in self.dyn.cities])
-        return torch.Tensor(np.stack((infected,dead))).unsqueeze(0)
+        if self.mode == 'binary':
+            infected = SCALE*np.array([np.array(obs['city']['infected'][c])/obs['pop'][c] for c in self.dyn.cities])
+            dead = SCALE*np.array([np.array(obs['city']['dead'][c])/obs['pop'][c] for c in self.dyn.cities])
+            return torch.Tensor(np.stack((infected,dead))).unsqueeze(0)
+        elif self.mode == 'toggle':
+            infected = SCALE*np.array([np.array(obs['city']['infected'][c])/obs['pop'][c] for c in self.dyn.cities])
+            dead = SCALE*np.array([np.array(obs['city']['dead'][c])/obs['pop'][c] for c in self.dyn.cities])
+            confined = np.ones_like(dead)*int((self.dyn.c_confined['Lausanne'] != 1))
+            return torch.Tensor(np.stack((infected,dead,confined))).unsqueeze(0)
+        else:
+            raise Exception(NotImplemented)
 
     def parseaction(self,a):
-        if self.single_control:
+        if self.mode == 'binary':
             return {
                 'confinement': a==1,
                 'isolation': False,
                 'hospital': False,
                 'vaccinate': False,
             }
+        elif self.mode == 'toggle':
+            conf = (self.dyn.c_confined['Lausanne'] != 1)
+            if a ==1 :
+                conf = not conf
+            return {
+                'confinement': conf,
+                'isolation': False,
+                'hospital': False,
+                'vaccinate': False,
+            }
         else:
-            raise Exception('Not implemented yet')
-
+            raise Exception(NotImplemented)
 
     def get_info(self):
-        if self.single_control:
+        if self.mode == 'binary':
             return {
                 'parameters':self.dyn.epidemic_parameters(self.day),
                 'action': {
@@ -182,29 +209,51 @@ class CountryWideEnv(gym.Env):
                 'dead_cost': self.dead_cost,
                 'conf_cost': self.conf_cost,
                 }
+        elif self.mode == 'toggle':
+            return {
+                'parameters':self.dyn.epidemic_parameters(self.day),
+                'action': {
+                    'confinement': self.dyn.c_confined['Lausanne'] != 1,
+                    'isolation': False,
+                    'hospital': False,
+                    'vaccinate': False,
+                    },
+                'dead_cost': self.dead_cost,
+                'conf_cost': self.conf_cost,
+                'ann_cost': self.ann_cost,
+                }
         else:
-            raise Exception('Not implemented yet')
+            raise Exception(NotImplemented)
 
     # Execute one time step within the environment
     def step(self, action):
         self.day += 1
+        self.last_action = action
         for c in self.dyn.cities:
             self.dyn.set_action(self.parseaction(action),c)
         _obs_dict = self.dyn.step()
         self.last_obs = self.get_obs(_obs_dict)
 
-        self.reward, self.dead_cost, self.conf_cost = self.compute_reward(c,_obs_dict)
-
+        if self.mode == 'binary':
+            self.reward, self.dead_cost, self.conf_cost = self.compute_reward(c,_obs_dict)
+        elif self.mode=='toggle':
+            self.reward, self.dead_cost, self.conf_cost, self.ann_cost = self.compute_reward(c,_obs_dict)
+        else:
+            raise Exception(NotImplemented)
+        
         self.total_reward += self.reward
         done = self.day >= self.ep_len
         return self.last_obs, self.reward, done, self.get_info()
 
     # Reset the state of the environment to an initial state
     def reset(self, seed = None):
+        self.last_action = 0
         self.day = 0
         self.total_reward = 0
         self.dead_cost = 0
         self.conf_cost = 0
+        if self.mode == 'toggle':
+            self.ann_cost = 0
         self.dyn.reset()
         if seed is None:
             self.dyn.start_epidemic(dt.now())

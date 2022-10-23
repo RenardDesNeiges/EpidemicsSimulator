@@ -6,12 +6,10 @@ sys.path.append('./src')
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-from src.epidemic_env.env import EpidemicEnv
-from src.deep_q_learning.run import Trainer, CountryWideTrainer, DEFAULT_PARAMS
+from src.deep_q_learning.run import Trainer, CountryWideTrainer, COUNTRY_WIDE_BINARY, COUNTRY_WIDE_BINARY_TOGGLE
 
 DEFAULT_CONFIG = 'config/switzerland.yaml'
 
 if __name__ == '__main__':
-    # Trainer.run(DEFAULT_PARAMS)
-    CountryWideTrainer.run(DEFAULT_PARAMS)
+    CountryWideTrainer.run(COUNTRY_WIDE_BINARY_TOGGLE)
     
