@@ -6,7 +6,7 @@ import random as rd
 """ ModelDynamics class
     Handles the epidemic modeling and the parsing of a yaml configuration file.
     This class doesn't "know" that it's an RL environment, this part is handled 
-    by the wrapper class EpidemicEnv which handles the OpenAI gym part of the task.
+    by the wrapper class CountryWideEnv or DistributedEnv which handles the OpenAI gym part of the task.
 """
 
 class ModelDynamics():

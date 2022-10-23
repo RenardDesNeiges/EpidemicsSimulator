@@ -6,10 +6,10 @@ sys.path.append('./src')
 import os
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-from src.deep_q_learning.run import Trainer, CountryWideTrainer, COUNTRY_WIDE_BINARY, COUNTRY_WIDE_BINARY_TOGGLE
+from src.deep_q_learning.run import CountryWideTrainer, COUNTRY_WIDE_BINARY, COUNTRY_WIDE_BINARY_TOGGLE, COUNTRY_WIDE_MULTI_TOGGLE
 
 DEFAULT_CONFIG = 'config/switzerland.yaml'
 
 if __name__ == '__main__':
-    CountryWideTrainer.run(COUNTRY_WIDE_BINARY_TOGGLE)
+    CountryWideTrainer.run(COUNTRY_WIDE_MULTI_TOGGLE)
     
