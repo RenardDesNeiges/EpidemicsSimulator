@@ -193,25 +193,6 @@ class ModelDynamics():
         self.extra_hospital_beds[city] = self.extra_hospital_effectiveness if act['hospital'] else 1
         self.vaccinate[city] = self.vaccination_effectiveness if act['vaccinate'] else 0
 
-    
-         
-    """     Toggles the actions in a given city
-        
-        Parameters :
-                act [string] : the action to toggle
-                city [string] : the city in which to toggle that action
-    """ 
-    def toggle(self,act,city):
-        if act == 'confinement':
-            self.c_confined[city] = self.confinement_effectiveness if self.c_confined[city] == 1 else 1 
-        elif act == 'isolation':
-            self.c_isolated[city] = self.isolation_effectiveness if self.c_isolated[city]== 1 else 1 
-        elif act == 'hospital':
-            self.extra_hospital_beds[city] = self.extra_hospital_effectiveness if self.extra_hospital_beds[city]==1 else 1 
-        elif act == 'vaccinate':
-            self.vaccinate[city] =  self.vaccination_effectiveness if self.vaccinate[city]== 0 else 0
-        return
-
     """     Starts the epidemic (infects a given proportion 
             of the population in one or more randomly chosen cities)
         

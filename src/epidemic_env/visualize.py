@@ -65,8 +65,15 @@ class Visualize():
         t_recovered = np.array([e['parameters'][0]['recovered'] for e in info_hist[0:-1]])
         t_exposed = np.array([e['parameters'][0]['exposed'] for e in info_hist[0:-1]])
         t_dead = np.array([e['parameters'][0]['dead'] for e in info_hist[0:-1]])
-        t_conf = [int(e['action']['confinement'])*10000 for e in info_hist[0:-1]]
-
+        if type(info_hist[0]['action']['confinement']) == bool:
+            t_conf = [int(e['action']['confinement'])*10000 for e in info_hist[0:-1]]
+        else:
+            t_conf = [
+                np.sum(
+                    [int(e['action']['confinement'][c]) for c in  list(info_hist[0]['action']['confinement'].keys()) ]
+                    )*10000/9
+                    for e in info_hist[0:-1]
+                ]
 
         fig, ax = plt.subplots(2,2, figsize=(9,9))
 
