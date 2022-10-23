@@ -153,8 +153,11 @@ class CountryWideTrainer():
     @staticmethod
     def render_log(writer,hist, episode):
         print('Logging image')
-        episode_img = Visualize.render_episode_country(hist).transpose(2,0,1)
-        writer.add_image(f'Episode/Viz', episode_img, episode)
+        policy_img = Visualize.render_episode_country(hist).transpose(2,0,1)
+        state_img = Visualize.render_episode_fullstate(hist).transpose(2,0,1)
+        cities_img = Visualize.render_episode_citystate(hist).transpose(2,0,1)
+        writer.add_image(f'Episode/PolicyView', policy_img, episode)
+        writer.add_image(f'Episode/StateView', state_img, episode)
         pass
     
     @staticmethod
@@ -163,18 +166,18 @@ class CountryWideTrainer():
         obs_hist =  [obs]
         rew_hist = []
         loss_hist = []
-        distrib_hist = []
-        return rew_hist, info_hist, obs_hist, loss_hist, distrib_hist
+        Q_hist = []
+        return rew_hist, info_hist, obs_hist, loss_hist, Q_hist
     
-    def log_hist(rew,info, obs, loss, distrib, rew_hist, info_hist, obs_hist, loss_hist, distrib_hist):
+    def log_hist(rew,info, obs, loss, distrib, rew_hist, info_hist, obs_hist, loss_hist, Q_hist):
         rew_hist.append(rew.detach().numpy()[0,0])
         obs_hist.append(obs)
         info_hist.append(info)
         loss_hist.append(loss)
-        distrib_hist.append(distrib)
+        Q_hist.append(distrib)
     
     @staticmethod
-    def tb_log(writer, episode, params,R_hist, info_hist, obs_hist, info, obs_next,cumulative_reward,loss_hist,agent,distrib_hist):
+    def tb_log(writer, episode, params,R_hist, info_hist, obs_hist, info, obs_next,cumulative_reward,loss_hist,agent,Q_hist):
         
         obs_hist.append(obs_next)
         info_hist.append(info)
@@ -183,8 +186,8 @@ class CountryWideTrainer():
                             np.mean(R_hist), episode)
             writer.add_scalar('Alg/Loss', 
                             np.mean(loss_hist), episode)
-            writer.add_scalar('Alg/mean_distrib', 
-                            np.mean(distrib_hist), episode)
+            writer.add_scalar('Alg/Avg_Q_values', 
+                            np.mean(Q_hist), episode)
             writer.add_scalar('Alg/epsilon', 
                         agent.epsilon, episode)
             writer.add_scalar('RewardShaping/dead_cost', 
@@ -225,22 +228,22 @@ class CountryWideTrainer():
             
             finished = False
             obs, info = env.reset()
-            R_hist, obs_hist, info_hist, loss_hist, distrib_hist = CountryWideTrainer.log_init(obs,info)
+            R_hist, obs_hist, info_hist, loss_hist, Q_hist = CountryWideTrainer.log_init(obs,info)
             
             while not finished:
-                action, distrib = agent.act(obs)
+                action, est_Q = agent.act(obs)
                 obs_next, R, finished, info = env.step(action)
                 agent.memory.push(obs, action, obs_next, R)
                 
                 loss = agent.optimize_model()
-                CountryWideTrainer.log_hist(R,info, obs_next, loss, distrib,R_hist, info_hist, obs_hist, loss_hist,distrib_hist)
+                CountryWideTrainer.log_hist(R,info, obs_next, loss, est_Q,R_hist, info_hist, obs_hist, loss_hist,Q_hist)
 
                 obs = obs_next
                 if finished:
                     break
                             
             if params['log']: 
-                CountryWideTrainer.tb_log( writer, episode, params, R_hist, info_hist, obs_hist, info, obs_next,env.total_reward,loss_hist,agent, distrib_hist)
+                CountryWideTrainer.tb_log( writer, episode, params, R_hist, info_hist, obs_hist, info, obs_next,env.total_reward,loss_hist,agent, Q_hist)
                 if episode%params['viz_sample_rate'] == 0:  
                     CountryWideTrainer.render_log(writer,info_hist, episode)
 

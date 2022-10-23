@@ -106,11 +106,12 @@ class Agent():
         sample = random.random()
         
         action_distribution = self.model(x)
+        Q = float(action_distribution.detach().max())
         if sample > epsilon:
             with torch.no_grad():
                 return np.argmax(
                     np.exp(action_distribution.numpy())
                     /np.sum(np.exp(action_distribution.numpy())
-                    )), action_distribution.numpy()
+                    )), Q
         else:
-            return self.env.action_space.sample(),action_distribution.detach().numpy()
+            return self.env.action_space.sample(), Q
