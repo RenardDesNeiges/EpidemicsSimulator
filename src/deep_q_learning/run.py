@@ -14,7 +14,7 @@ DEFAULT_PARAMS = {
     'log' : True,
     'run_name' : 'default' + datetime.today().strftime('%m_%d.%H_%M_%S'),
     'env_config' : 'config/switzerland.yaml',
-    'model' : 'DQN', # 'DQ_CNN',
+    'model' : 'DQN', 
     'target_update_rate' : 5,
     'reward_sample_rate' : 1,
     'viz_sample_rate' : 10,
@@ -23,11 +23,10 @@ DEFAULT_PARAMS = {
     'lr' :  5e-3,
     'epsilon': 0.7, 
     'epsilon_decrease': 200, 
-    'gamma': 0.99,
+    'gamma': 0.7,
     'buffer_size': 10000, 
-    'batch_size': 64
+    'batch_size': 512
 }
-
 
 class Trainer():
     
@@ -162,32 +161,38 @@ class CountryWideTrainer():
     def log_init(info, obs):
         info_hist = [info]
         obs_hist =  [obs]
+        rew_hist = []
         loss_hist = []
         distrib_hist = []
-        return info_hist, obs_hist, loss_hist, distrib_hist
+        return rew_hist, info_hist, obs_hist, loss_hist, distrib_hist
     
-    def log_hist(info, obs, loss, distrib, info_hist, obs_hist, loss_hist, distrib_hist):
+    def log_hist(rew,info, obs, loss, distrib, rew_hist, info_hist, obs_hist, loss_hist, distrib_hist):
+        rew_hist.append(rew.detach().numpy()[0,0])
         obs_hist.append(obs)
         info_hist.append(info)
         loss_hist.append(loss)
         distrib_hist.append(distrib)
     
     @staticmethod
-    def tb_log(writer, episode, params, info_hist, obs_hist, info, obs_next,cumulative_reward,loss_hist,agent,distrib_hist):
+    def tb_log(writer, episode, params,R_hist, info_hist, obs_hist, info, obs_next,cumulative_reward,loss_hist,agent,distrib_hist):
         
         obs_hist.append(obs_next)
         info_hist.append(info)
         if  episode%params['reward_sample_rate'] == params['reward_sample_rate']-1:
-            writer.add_scalar('Alg/Reward', 
-                            float((cumulative_reward/params['reward_sample_rate'])[0,0]), episode)
+            writer.add_scalar('Alg/Avg_Reward', 
+                            np.mean(R_hist), episode)
             writer.add_scalar('Alg/Loss', 
                             np.mean(loss_hist), episode)
             writer.add_scalar('Alg/mean_distrib', 
-                        np.mean(distrib_hist), episode)
+                            np.mean(distrib_hist), episode)
+            writer.add_scalar('Alg/epsilon', 
+                        agent.epsilon, episode)
             writer.add_scalar('RewardShaping/dead_cost', 
                             np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)
             writer.add_scalar('RewardShaping/conf_cost', 
                             np.mean([e['conf_cost'] for e in info_hist[:-1]]), episode)
+            writer.add_scalar('RewardShaping/conf_dead_ration', 
+                            np.mean([e['conf_cost'] for e in info_hist[:-1]])/np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)
             writer.add_scalar('System/Deaths', 
                             info_hist[-1]['parameters'][0]['dead'], episode)
             writer.add_scalar('System/PeakInfection', 
@@ -203,7 +208,7 @@ class CountryWideTrainer():
             writer.add_scalar('System/FreeVaccinationDays', 
                             np.sum([np.sum(e['action']['vaccinate']) for e in info_hist[:-1]])*7, episode)
 
-        print("episode {}, avg reward = {}, epsilon = {}".format(episode, float((cumulative_reward/params['reward_sample_rate'])[0,0]), agent.epsilon))
+        print("episode {}, avg reward = {}, epsilon = {}".format(episode,np.mean(R_hist), agent.epsilon))
     
     @staticmethod
     def train(env,agent,writer,params):
@@ -220,7 +225,7 @@ class CountryWideTrainer():
             
             finished = False
             obs, info = env.reset()
-            obs_hist, info_hist, loss_hist, distrib_hist = CountryWideTrainer.log_init(obs,info)
+            R_hist, obs_hist, info_hist, loss_hist, distrib_hist = CountryWideTrainer.log_init(obs,info)
             
             while not finished:
                 action, distrib = agent.act(obs)
@@ -228,14 +233,14 @@ class CountryWideTrainer():
                 agent.memory.push(obs, action, obs_next, R)
                 
                 loss = agent.optimize_model()
-                CountryWideTrainer.log_hist(info, obs_next, loss, distrib, info_hist, obs_hist, loss_hist,distrib_hist)
+                CountryWideTrainer.log_hist(R,info, obs_next, loss, distrib,R_hist, info_hist, obs_hist, loss_hist,distrib_hist)
 
                 obs = obs_next
                 if finished:
                     break
                             
             if params['log']: 
-                CountryWideTrainer.tb_log( writer, episode, params, info_hist, obs_hist, info, obs_next,env.total_reward,loss_hist,agent, distrib_hist)
+                CountryWideTrainer.tb_log( writer, episode, params, R_hist, info_hist, obs_hist, info, obs_next,env.total_reward,loss_hist,agent, distrib_hist)
                 if episode%params['viz_sample_rate'] == 0:  
                     CountryWideTrainer.render_log(writer,info_hist, episode)
 

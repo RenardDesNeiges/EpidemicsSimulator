@@ -143,9 +143,12 @@ class CountryWideEnv(gym.Env):
         dead = 0
         conf = 0
         for city in self.dyn.cities:
-            dead +=  10 * obs_dict['city']['dead'][city][-1]  / (self.dyn.total_pop)
-            conf +=  1.5 * int(self.dyn.c_confined[city])*obs_dict['pop'][city]  / (self.dyn.total_pop)
-        rew = 1 - dead - conf 
+            if len(obs_dict['city']['dead'][city]) > 1:
+                dead +=  4e4 * (obs_dict['city']['dead'][city][-1] - obs_dict['city']['dead'][city][-2] ) / (self.dyn.total_pop)
+            else:
+                dead +=  4e4 * obs_dict['city']['dead'][city][-1] / (self.dyn.total_pop)
+            conf +=  2 * int(self.dyn.c_confined[city] == self.dyn.confinement_effectiveness)*obs_dict['pop'][city]  / (self.dyn.total_pop)
+        rew = 3 - dead - conf 
         
         return torch.Tensor([rew]).unsqueeze(0), dead, conf
 

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 import numpy as np
 
-DPI = 300
+DPI = 100
 
 def fig_2_numpy(fig):
     io_buf = io.BytesIO()
@@ -37,13 +37,36 @@ class Visualize():
     @staticmethod 
     def render_episode_country(info_hist):
         
+        plt.close('all')
+        
         infection_hist = pd.DataFrame([e['parameters'][0] for e in info_hist[0:-1]])
         confinement_hist = pd.DataFrame([e['action']['confinement'] for e in info_hist[0:-1]])
         isolation_hist = pd.DataFrame([e['action']['isolation'] for e in info_hist[0:-1]])
         hospital_hist = pd.DataFrame([e['action']['hospital'] for e in info_hist[0:-1]])
         vaccinate_hist = pd.DataFrame([e['action']['vaccinate'] for e in info_hist[0:-1]])
         
-        fig, ax = plt.subplots(3,2)
+        fig, ax = plt.subplots(3,2, figsize=(9,9))
+        infection_hist.plot(y='infected', use_index=True, ax=ax[0,0])
+        infection_hist.plot(y='dead', x='day', ax=ax[0,0])
+        plot_time_boolean(confinement_hist,ax[1,0], 'Confined', 'Not Confined')
+        plot_time_boolean(isolation_hist,ax[0,1], 'Isolated', 'Not Isolated')
+        plot_time_boolean(hospital_hist,ax[1,1], 'With additional hospital beds', 'Without additional hospital beds')
+        plot_time_boolean(vaccinate_hist,ax[2,1], 'Vaccinate', 'Do not vaccinate')
+        fig.tight_layout()
+        return fig_2_numpy(fig)
+    
+    @staticmethod 
+    def render_episode_fullstate(info_hist):
+        
+        plt.close('all')
+        
+        infection_hist = pd.DataFrame([e['parameters'][0] for e in info_hist[0:-1]])
+        confinement_hist = pd.DataFrame([e['action']['confinement'] for e in info_hist[0:-1]])
+        isolation_hist = pd.DataFrame([e['action']['isolation'] for e in info_hist[0:-1]])
+        hospital_hist = pd.DataFrame([e['action']['hospital'] for e in info_hist[0:-1]])
+        vaccinate_hist = pd.DataFrame([e['action']['vaccinate'] for e in info_hist[0:-1]])
+        
+        fig, ax = plt.subplots(3,2, figsize=(9,9))
         infection_hist.plot(y='infected', use_index=True, ax=ax[0,0])
         infection_hist.plot(y='dead', x='day', ax=ax[0,0])
         plot_time_boolean(confinement_hist,ax[1,0], 'Confined', 'Not Confined')

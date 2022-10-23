@@ -4,7 +4,7 @@ import torch.nn as nn
 class DQN(nn.Module):
     """Fully connected Q-Value estimator network."""
     
-    def __init__(self, in_dim = 126, out_dim = 16, dropout=0):
+    def __init__(self, in_dim = 126, out_dim = 16, dropout=0, small=False):
         super().__init__()
 
         # Dropout modules
@@ -19,19 +19,21 @@ class DQN(nn.Module):
         lin2 = nn.Linear(in_features=64, out_features=32)
         relu2 = nn.ReLU()
         lin_layers += [lin2, relu2]
-        lin3 = nn.Linear(in_features=32, out_features=16)
-        relu3 = nn.ReLU()
-        lin_layers += [lin3, relu3]
-        lin4 = nn.Linear(in_features=16, out_features=out_dim)
-        lin_layers += [lin4]
+        
+        if small:
+            lin3 = nn.Linear(in_features=32, out_features=out_dim)
+            lin_layers += [lin3]
+        else:
+            lin3 = nn.Linear(in_features=32, out_features=16)
+            relu3 = nn.ReLU()
+            lin_layers += [lin3, relu3]
+            lin4 = nn.Linear(in_features=16, out_features=out_dim)
+            lin_layers += [lin4]
         
         self.fcn = nn.Sequential(*lin_layers)
-        # self.out = nn.Sigmoid()
-        
- 
+
     def forward(self, x):
         x = self.fcn(x.view(x.size(0),-1))
-        # x = self.out(x)
         return x
 
 
