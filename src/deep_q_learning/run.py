@@ -332,13 +332,11 @@ class CountryWideTrainer():
                             np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)
             writer.add_scalar('RewardShaping/conf_cost', 
                             np.mean([e['conf_cost'] for e in info_hist[:-1]]), episode)
-            if params['mode'] == 'toggle' or params['mode'] == 'multi':
-                writer.add_scalar('RewardShaping/ann_cost', 
+            writer.add_scalar('RewardShaping/ann_cost', 
                             np.mean([e['ann_cost'] for e in info_hist[:-1]]), episode)
-            if params['mode'] == 'multi':
-                writer.add_scalar('RewardShaping/vacc_cost', 
+            writer.add_scalar('RewardShaping/vacc_cost', 
                             np.mean([e['vacc_cost'] for e in info_hist[:-1]]), episode)
-                writer.add_scalar('RewardShaping/hosp_cost', 
+            writer.add_scalar('RewardShaping/hosp_cost', 
                             np.mean([e['hosp_cost'] for e in info_hist[:-1]]), episode)
             writer.add_scalar('RewardShaping/conf_dead_ration', 
                             np.mean([e['conf_cost'] for e in info_hist[:-1]])/np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)

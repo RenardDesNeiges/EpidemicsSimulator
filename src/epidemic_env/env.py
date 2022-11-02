@@ -92,9 +92,9 @@ class CountryWideEnv(gym.Env):
 
         def compute_annoucement_cost():
             announcement = 0
-            if self.get_info()['action']['confinement'] and not self.last_info['confinement']:
+            if self.get_info()['action']['confinement'] and not self.last_info['action']['confinement']:
                 announcement += ANN_COST
-            if self.get_info()['action']['isolation'] and not self.last_info['isolation']:
+            if self.get_info()['action']['isolation'] and not self.last_info['action']['isolation']:
                 announcement += ANN_COST
             return announcement
 
@@ -211,14 +211,8 @@ class CountryWideEnv(gym.Env):
         _obs_dict = self.dyn.step()
         self.last_obs = self.get_obs(_obs_dict)
 
-        # TODO single reward for all action spaces/modes
-        self.reward,
-        self.dead_cost,
-        self.conf_cost,
-        self.ann_cost,
-        self.vacc_cost,
-        self.hosp_cost,
-        self.isol = self.compute_reward(_obs_dict)
+        self.reward, self.dead_cost, self.conf_cost, self.ann_cost, self.vacc_cost, self.hosp_cost, self.isol = self.compute_reward(
+            _obs_dict)
 
         self.total_reward += self.reward
         done = self.day >= self.ep_len
@@ -231,13 +225,10 @@ class CountryWideEnv(gym.Env):
         self.total_reward = 0
         self.dead_cost = 0
         self.conf_cost = 0
-        if self.mode == 'toggle':
-            self.ann_cost = 0
-        if self.mode == 'multi':
-            self.ann_cost = 0
-            self.vacc_cost = 0
-            self.hosp_cost = 0
-            self.isol = 0
+        self.ann_cost = 0
+        self.vacc_cost = 0
+        self.hosp_cost = 0
+        self.isol = 0
         self.dyn.reset()
         if seed is None:
             self.dyn.start_epidemic(dt.now())
@@ -246,7 +237,7 @@ class CountryWideEnv(gym.Env):
 
         _obs_dict = self.dyn.step()  # Eyo c'est un tuple ça
         self.last_obs = self.get_obs(_obs_dict)
-        self.last_info = f.get_info()
+        self.last_info = self.get_info()
         return self.last_obs, self.last_info
 
     # Render the environment to the screen

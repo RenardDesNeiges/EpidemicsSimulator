@@ -16,9 +16,9 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() # create the parser object
 
-    parser.add_argument("--trainer", type=str,  default='DistributedTrainer',
+    parser.add_argument("--trainer", type=str,  default='CountryWideTrainer',
                         help="Give the trainer object to be used")
-    parser.add_argument("--params", type=str,  default='DISTRIBUTED_MULTI_TOGGLE',
+    parser.add_argument("--params", type=str,  default='COUNTRY_WIDE_MULTI_TOGGLE',
                         help="Give the trainer object to be used")
 
     args = parser.parse_args() # get the named tuple
