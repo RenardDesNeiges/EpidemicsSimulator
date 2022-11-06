@@ -18,13 +18,13 @@ if __name__ == '__main__':
 
     parser.add_argument("--trainer", type=str,  default='DistributedTrainer',
                         help="Give the trainer object to be used")
-    parser.add_argument("--params", type=str,  default='DISTRIBUTED_BINARY',
+    parser.add_argument("--params", type=str,  default='DISTRIBUTED_MULTI_TOGGLE',
                         help="Give the trainer object to be used")
 
     args = parser.parse_args() # get the named tuple
     
     _trainer = getTrainer(args.trainer)
     _params = getParams(args.params)
-    
+    print(f"Training the agent with trainer {args.trainer} and parameters {args.params}")
     _trainer.run(_params)
     

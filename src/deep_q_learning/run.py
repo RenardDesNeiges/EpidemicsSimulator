@@ -12,6 +12,7 @@ from copy import deepcopy
 LOG_FOLDER = 'runs/'
 SAVE_FOLDER = 'models/'
 
+
 PARAMS = {
     'COUNTRY_WIDE_BINARY': {
         'log': True,
@@ -21,12 +22,14 @@ PARAMS = {
         'model': 'DQN',
         'target_update_rate': 5,
         'reward_sample_rate': 1,
-        'viz_sample_rate': 10,
+        'eval_rate': 20,
+        'eval_samples': 10,
         'num_episodes': 300,
         'criterion':  nn.HuberLoss(),
         'lr':  5e-3,
         'epsilon': 0.7,
-        'epsilon_decrease': 200,
+        'epsilon_decrease': 300,
+        'epsilon_floor': 0.2,
         'gamma': 0.7,
         'buffer_size': 10000,
         'batch_size': 512,
@@ -39,12 +42,14 @@ PARAMS = {
         'model': 'DQN',
         'target_update_rate': 5,
         'reward_sample_rate': 1,
-        'viz_sample_rate': 10,
+        'eval_rate': 20,
+        'eval_samples': 10,
         'num_episodes': 300,
         'criterion':  nn.HuberLoss(),
         'lr':  5e-3,
         'epsilon': 0.7,
-        'epsilon_decrease': 200,
+        'epsilon_decrease': 300,
+        'epsilon_floor': 0.2,
         'gamma': 0.7,
         'buffer_size': 10000,
         'batch_size': 512
@@ -57,12 +62,14 @@ PARAMS = {
         'model': 'DQN',
         'target_update_rate': 5,
         'reward_sample_rate': 1,
-        'viz_sample_rate': 10,
+        'eval_rate': 20,
+        'eval_samples': 10,
         'num_episodes': 600,
         'criterion':  nn.HuberLoss(),
         'lr':  5e-3,
         'epsilon': 0.7,
-        'epsilon_decrease': 550,
+        'epsilon_decrease': 300,
+        'epsilon_floor': 0.2,
         'gamma': 0.9,
         'buffer_size': 10000,
         'batch_size': 512
@@ -75,12 +82,14 @@ PARAMS = {
         'model': 'DQN',
         'target_update_rate': 5,
         'reward_sample_rate': 1,
-        'viz_sample_rate': 10,
+        'eval_rate': 20,
+        'eval_samples': 10,
         'num_episodes': 300,
         'criterion':  nn.HuberLoss(),
         'lr':  5e-3,
         'epsilon': 0.7,
-        'epsilon_decrease': 200,
+        'epsilon_decrease': 300,
+        'epsilon_floor': 0.2,
         'gamma': 0.7,
         'buffer_size': 10000,
         'batch_size': 512,
@@ -93,12 +102,14 @@ PARAMS = {
         'model': 'DQN',
         'target_update_rate': 5,
         'reward_sample_rate': 1,
-        'viz_sample_rate': 10,
+        'eval_rate': 20,
+        'eval_samples': 10,
         'num_episodes': 300,
         'criterion':  nn.HuberLoss(),
         'lr':  5e-3,
         'epsilon': 0.7,
-        'epsilon_decrease': 200,
+        'epsilon_decrease': 300,
+        'epsilon_floor': 0.2,
         'gamma': 0.7,
         'buffer_size': 10000,
         'batch_size': 512,
@@ -111,12 +122,14 @@ PARAMS = {
         'model': 'DQN',
         'target_update_rate': 5,
         'reward_sample_rate': 1,
-        'viz_sample_rate': 10,
+        'eval_rate': 20,
+        'eval_samples': 10,
         'num_episodes': 600,
         'criterion':  nn.HuberLoss(),
         'lr':  5e-3,
         'epsilon': 0.7,
-        'epsilon_decrease': 550,
+        'epsilon_decrease': 300,
+        'epsilon_floor': 0.2,
         'gamma': 0.9,
         'buffer_size': 10000,
         'batch_size': 512
@@ -144,7 +157,7 @@ class DistributedTrainer():
 
     @staticmethod
     def render_log(writer, hist, episode):
-        print('Logging image')
+        print(f'Eval at episode {episode} Logging image')
         policy_img = Visualize.render_episode_country(hist).transpose(2, 0, 1)
         state_img = Visualize.render_episode_fullstate(hist).transpose(2, 0, 1)
         cities_img = Visualize.render_episode_city(hist).transpose(2, 0, 1)
@@ -197,19 +210,34 @@ class DistributedTrainer():
                               np.mean([e['hosp_cost'] for e in info_hist[:-1]]), episode)
             writer.add_scalar('RewardShaping/conf_dead_ratio',
                               np.mean([e['conf_cost'] for e in info_hist[:-1]])/np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)
-            writer.add_scalar('System/Deaths',
+
+    @staticmethod
+    def tb_eval_log(writer, episode, params, glob_R_hist, info_hist, info):
+
+        info_hist.append(info)
+
+        avg_R = np.mean([np.mean(e) for e in glob_R_hist])
+        avg_Var = np.var([np.mean(e) for e in glob_R_hist])
+
+        if episode % params['reward_sample_rate'] == params['reward_sample_rate']-1:
+            writer.add_scalar('EvalAlg/Avg_Reward',
+                              avg_R, episode)
+            writer.add_scalar('EvalAlg/Var_Reward',
+                              avg_Var, episode)
+
+            writer.add_scalar('EvalSystem/Deaths',
                               info_hist[-1]['parameters'][0]['dead'], episode)
-            writer.add_scalar('System/PeakInfection',
+            writer.add_scalar('EvalSystem/PeakInfection',
                               np.max([e['parameters'][0]['infected'] for e in info_hist[:-1]]), episode)
-            writer.add_scalar('System/Recovered',
+            writer.add_scalar('EvalSystem/Recovered',
                               info_hist[-1]['parameters'][0]['recovered'], episode)
-            writer.add_scalar('System/ConfinedDays',
+            writer.add_scalar('EvalSystem/ConfinedDays',
                               np.sum([np.sum([int(c) for c in list(e['action']['confinement'].values())]) for e in info_hist[:-1]])*(7/9), episode)
-            writer.add_scalar('System/IsolationDays',
+            writer.add_scalar('EvalSystem/IsolationDays',
                               np.sum([np.sum([int(c) for c in list(e['action']['isolation'].values())]) for e in info_hist[:-1]])*(7/9), episode)
-            writer.add_scalar('System/AdditionalHospitalDays',
+            writer.add_scalar('EvalSystem/AdditionalHospitalDays',
                               np.sum([np.sum([int(c) for c in list(e['action']['hospital'].values())]) for e in info_hist[:-1]])*(7/9), episode)
-            writer.add_scalar('System/FreeVaccinationDays',
+            writer.add_scalar('EvalSystem/FreeVaccinationDays',
                               np.sum([np.sum([int(c) for c in list(e['action']['vaccinate'].values())]) for e in info_hist[:-1]])*(7/9), episode)
 
     @staticmethod
@@ -217,17 +245,9 @@ class DistributedTrainer():
 
         for episode in range(params['num_episodes']):
 
-            if episode % params['target_update_rate'] == 0:
-                for _, agent in agents.items():
-                    agent.targetModel.load_state_dict(agent.model.state_dict())
-
-            if episode % params['viz_sample_rate'] == 0:
-                for _, agent in agents.items():
-                    agent.epsilon = 0
-            else:
-                for _, agent in agents.items():
-                    agent.epsilon = max(
-                        params['epsilon'] - params['epsilon'] * episode/params['epsilon_decrease'], 0)
+            for _, agent in agents.items():
+                agent.epsilon = max(
+                    params['epsilon'] - params['epsilon'] * episode/params['epsilon_decrease'], params['epsilon_floor'])
 
             finished = False
             obs, info = env.reset()
@@ -258,13 +278,53 @@ class DistributedTrainer():
             ))
             if params['log']:
                 DistributedTrainer.tb_log(
-                    writer, episode, params, R_hist, info_hist, obs_hist, info, obs_next, loss_hist, agents, Q_hist, glob_R_hist)
-                if episode % params['viz_sample_rate'] == 0:
-                    DistributedTrainer.render_log(writer, info_hist, episode)
+                    writer, episode, params, R_hist, info_hist, obs_hist,
+                    info, obs_next, loss_hist, agents, Q_hist, glob_R_hist)
+
+                if episode % params['eval_rate'] == 0:
+
+                    DistributedTrainer._eval_model(
+                        agents, env, writer, episode, params, params['eval_samples'])
+
                     torch.save(agent.model, SAVE_FOLDER +
                                params['run_name'] + '.pkl')
 
         return None
+
+    @staticmethod
+    def _eval_model(agents, env, writer, episode, params, iterations):
+        for _, agent in agents.items():
+            agent.targetModel.load_state_dict(agent.model.state_dict())
+
+        R_container = []
+        for _it in range(iterations):
+
+            finished = False
+            obs, info = env.reset()
+            R_hist, obs_hist, info_hist, _, Q_hist, glob_R_hist = DistributedTrainer.log_init(
+                obs, info)
+
+            while not finished:
+                _actions = {c: agent.act(obs[c])
+                            for (c, agent) in agents.items()}
+                obs_next, _glob_R, R, finished, info = env.step(_actions)
+                for c in env.dyn.cities:
+                    agents[c].memory.push(
+                        obs[c], _actions[c][0], obs_next[c], R[c])
+
+                DistributedTrainer.log_hist(
+                    R, info, obs_next, [], _actions, _glob_R, R_hist, info_hist, obs_hist, [], Q_hist, glob_R_hist)
+
+                obs = obs_next
+                if finished:
+                    break
+
+            R_container.append(glob_R_hist)
+            if _it == 0:
+                DistributedTrainer.render_log(writer, info_hist, episode)
+
+        DistributedTrainer.tb_eval_log(
+            writer, episode, params, glob_R_hist, info_hist, info)
 
     @staticmethod
     def run(params):
@@ -305,7 +365,7 @@ class CountryWideTrainer():
 
     @staticmethod
     def render_log(writer, hist, episode):
-        print('Logging image')
+        print(f'Eval at episode {episode} Logging image')
         policy_img = Visualize.render_episode_country(hist).transpose(2, 0, 1)
         state_img = Visualize.render_episode_fullstate(hist).transpose(2, 0, 1)
         cities_img = Visualize.render_episode_city(hist).transpose(2, 0, 1)
@@ -330,13 +390,15 @@ class CountryWideTrainer():
         Q_hist.append(distrib)
 
     @staticmethod
-    def tb_log(writer, episode, params, R_hist, info_hist, obs_hist, info, obs_next, loss_hist, agent, Q_hist):
+    def tb_log(writer, episode, params, R_hist, info_hist, obs_hist,
+               info, obs_next, loss_hist, agent, Q_hist):
 
         obs_hist.append(obs_next)
         info_hist.append(info)
         if episode % params['reward_sample_rate'] == params['reward_sample_rate']-1:
             writer.add_scalar('Alg/Avg_Reward',
                               np.mean(R_hist), episode)
+
             writer.add_scalar('Alg/Avg_Loss',
                               np.mean(loss_hist), episode)
             writer.add_scalar('Alg/Avg_Q_values',
@@ -355,19 +417,36 @@ class CountryWideTrainer():
                               np.mean([e['hosp_cost'] for e in info_hist[:-1]]), episode)
             writer.add_scalar('RewardShaping/conf_dead_ratio',
                               np.mean([e['conf_cost'] for e in info_hist[:-1]])/np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)
-            writer.add_scalar('System/Deaths',
+
+    def tb_eval_log(writer, episode, params, R_hist, info_hist, obs_hist,
+                    info, obs_next):
+
+        obs_hist.append(obs_next)
+        info_hist.append(info)
+
+        avg_R = np.mean([np.mean(e) for e in R_hist])
+        avg_Var = np.var([np.mean(e) for e in R_hist])
+        print(f'    Eval finisehd with R={avg_R} and Var={avg_Var}')
+
+        if episode % params['reward_sample_rate'] == params['reward_sample_rate']-1:
+            writer.add_scalar('EvalAlg/Avg_Reward',
+                              avg_R, episode)
+            writer.add_scalar('EvalAlg/Var_Reward',
+                              avg_Var, episode)
+
+            writer.add_scalar('EvalSystem/Deaths',
                               info_hist[-1]['parameters'][0]['dead'], episode)
-            writer.add_scalar('System/PeakInfection',
+            writer.add_scalar('EvalSystem/PeakInfection',
                               np.max([e['parameters'][0]['infected'] for e in info_hist[:-1]]), episode)
-            writer.add_scalar('System/Recovered',
+            writer.add_scalar('EvalSystem/Recovered',
                               info_hist[-1]['parameters'][0]['recovered'], episode)
-            writer.add_scalar('System/ConfinedDays',
+            writer.add_scalar('EvalSystem/ConfinedDays',
                               np.sum([np.sum(e['action']['confinement']) for e in info_hist[:-1]])*7, episode)
-            writer.add_scalar('System/IsolationDays',
+            writer.add_scalar('EvalSystem/IsolationDays',
                               np.sum([np.sum(e['action']['isolation']) for e in info_hist[:-1]])*7, episode)
-            writer.add_scalar('System/AdditionalHospitalDays',
+            writer.add_scalar('EvalSystem/AdditionalHospitalDays',
                               np.sum([np.sum(e['action']['hospital']) for e in info_hist[:-1]])*7, episode)
-            writer.add_scalar('System/FreeVaccinationDays',
+            writer.add_scalar('EvalSystem/FreeVaccinationDays',
                               np.sum([np.sum(e['action']['vaccinate']) for e in info_hist[:-1]])*7, episode)
 
     @staticmethod
@@ -378,11 +457,11 @@ class CountryWideTrainer():
             if episode % params['target_update_rate'] == 0:
                 agent.targetModel.load_state_dict(agent.model.state_dict())
 
-            if episode % params['viz_sample_rate'] == 0:
-                agent.epsilon = 0
-            else:
-                agent.epsilon = max(
-                    params['epsilon'] - params['epsilon'] * episode/params['epsilon_decrease'], 0)
+            agent.epsilon = max(
+                params['epsilon'] - params['epsilon'] *
+                episode/params['epsilon_decrease'],
+                params['epsilon_floor']
+            )
 
             finished = False
             obs, info = env.reset()
@@ -396,7 +475,8 @@ class CountryWideTrainer():
 
                 loss = agent.optimize_model()
                 CountryWideTrainer.log_hist(
-                    R, info, obs_next, loss, est_Q, R_hist, info_hist, obs_hist, loss_hist, Q_hist)
+                    R, info, obs_next, loss, est_Q, R_hist,
+                    info_hist, obs_hist, loss_hist, Q_hist)
 
                 obs = obs_next
                 if finished:
@@ -404,16 +484,54 @@ class CountryWideTrainer():
 
             print("episode {}, avg reward = {}, epsilon = {}".format(
                 episode, np.mean(R_hist), agent.epsilon))
+
             if params['log']:
-                CountryWideTrainer.tb_log(
-                    writer, episode, params, R_hist, info_hist, obs_hist, info, obs_next, loss_hist, agent, Q_hist)
-                if episode % params['viz_sample_rate'] == 0:
-                    CountryWideTrainer.render_log(writer, info_hist, episode)
+                CountryWideTrainer.tb_log(  # We log at each time step
+                    writer, episode, params, R_hist, info_hist, obs_hist,
+                    info, obs_next, loss_hist, agent, Q_hist)
+
+                # evaluation runs are performed with epsilon = 0
+                if episode % params['eval_rate'] == 0:
+
+                    CountryWideTrainer._eval_model(
+                        agent, env, writer, episode, params, params['eval_samples'])
+
                     # save the last model
                     torch.save(agent.model, SAVE_FOLDER +
                                params['run_name'] + '.pkl')
 
         return None
+
+    @staticmethod
+    def _eval_model(agent, env, writer, episode, params, iterations):
+        agent.epsilon = 0
+
+        R_container = []
+        for _it in range(iterations):
+
+            finished = False
+            obs, info = env.reset()
+            R_hist, obs_hist, info_hist, _, Q_hist = CountryWideTrainer.log_init(
+                obs, info)
+            while not finished:
+                action, est_Q = agent.act(obs)
+                obs_next, R, finished, info = env.step(action)
+                agent.memory.push(obs, action, obs_next, R)
+                CountryWideTrainer.log_hist(
+                    R, info, obs_next, 0, est_Q,
+                    R_hist, info_hist, obs_hist, [], Q_hist)
+                obs = obs_next
+                if finished:
+                    break
+
+            R_container.append(R_hist)
+
+            if _it == 0:
+                CountryWideTrainer.render_log(writer, info_hist, episode)
+
+        CountryWideTrainer.tb_eval_log(  # We log at each time step
+            writer, episode, params, R_container, info_hist, obs_hist,
+            info, obs_next)
 
     @staticmethod
     def run(params):
