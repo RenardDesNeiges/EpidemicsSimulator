@@ -378,7 +378,7 @@ class DistributedTrainer():
                     writer, episode, params, R_hist, info_hist, obs_hist,
                     info, obs_next, loss_hist, agents, Q_hist, glob_R_hist)
 
-                if episode % params['eval_rate'] == 0:
+                if episode % params['eval_rate'] == 0 or (episode == params['num_episodes']-1):
 
                     last_reward = DistributedTrainer._eval_model(
                         agents, env, writer, episode, params, params['eval_samples'])
@@ -647,7 +647,7 @@ class CountryWideTrainer():
                     info, obs_next, loss_hist, agent, Q_hist)
 
                 # evaluation runs are performed with epsilon = 0
-                if episode % params['eval_rate'] == 0:
+                if episode % params['eval_rate'] == 0 or (episode == params['num_episodes']-1):
 
                     last_reward = CountryWideTrainer._eval_model(
                         agent, env, writer, episode, params, params['eval_samples'])

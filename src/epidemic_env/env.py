@@ -11,7 +11,7 @@ ACTION_HOSPITAL = 3
 ACTION_VACCINATE = 4
 SCALE = 100
 
-CONST_REWARD = 3
+CONST_REWARD = 7
 DEATH_COST = 7e4
 ANN_COST = 4
 ISOL_COST = 1.5
@@ -25,7 +25,7 @@ HOSP_COST = 1
 class CountryWideEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, source_file, ep_len=100, mode='binary'):
+    def __init__(self, source_file, ep_len=30, mode='binary'):
         super(CountryWideEnv, self).__init__()
 
         self.ep_len = ep_len
@@ -253,7 +253,7 @@ class CountryWideEnv(gym.Env):
 class DistributedEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, source_file, ep_len=100, mode='binary'):
+    def __init__(self, source_file, ep_len=30, mode='binary'):
         super(DistributedEnv, self).__init__()
 
         self.ep_len = ep_len
