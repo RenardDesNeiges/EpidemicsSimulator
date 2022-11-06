@@ -96,6 +96,8 @@ class CountryWideEnv(gym.Env):
                 announcement += ANN_COST
             if self.get_info()['action']['isolation'] and not self.last_info['action']['isolation']:
                 announcement += ANN_COST
+            if self.get_info()['action']['vaccinate'] and not self.last_info['vaccinate']['isolation']:
+                announcement += ANN_COST
             return announcement
 
         def compute_vaccination_cost():
@@ -345,6 +347,8 @@ class DistributedEnv(gym.Env):
                     announcement += ANN_COST
                 if self.get_info()['action']['isolation'][city] and not self.last_info['action']['isolation'][city]:
                     announcement += ANN_COST
+                if self.get_info()['action']['vaccinate'][city] and not self.last_info['action']['vaccinate'][city]:
+                    announcement += ANN_COST
                 return announcement
             else:
                 announcement = 0
@@ -353,6 +357,9 @@ class DistributedEnv(gym.Env):
                         announcement += ANN_COST * \
                             (obs_dict['pop'][_city] / self.dyn.total_pop)
                     if self.get_info()['action']['isolation'][_city] and not self.last_info['action']['isolation'][_city]:
+                        announcement += ANN_COST * \
+                            (obs_dict['pop'][_city] / self.dyn.total_pop)
+                    if self.get_info()['action']['vaccinate'][_city] and not self.last_info['action']['vaccinate'][_city]:
                         announcement += ANN_COST * \
                             (obs_dict['pop'][_city] / self.dyn.total_pop)
                 return announcement

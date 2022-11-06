@@ -14,6 +14,26 @@ SAVE_FOLDER = 'models/'
 
 
 PARAMS = {
+    'COUNTRY_WIDE_DEBUG': {
+        'log': True,
+        'mode': 'binary',
+        'run_name': 'country_wide_debug_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'env_config': 'config/switzerland.yaml',
+        'model': 'DQN',
+        'target_update_rate': 5,
+        'reward_sample_rate': 1,
+        'eval_rate': 20,
+        'eval_samples': 2,
+        'num_episodes': 300,
+        'criterion':  nn.HuberLoss(),
+        'lr':  5e-3,
+        'epsilon': 0.7,
+        'epsilon_decrease': 300,
+        'epsilon_floor': 0.2,
+        'gamma': 0.7,
+        'buffer_size': 10000,
+        'batch_size': 512,
+    },
     'COUNTRY_WIDE_BINARY': {
         'log': True,
         'mode': 'binary',
@@ -73,6 +93,26 @@ PARAMS = {
         'gamma': 0.9,
         'buffer_size': 10000,
         'batch_size': 512
+    },
+    'DISTRIBUTED_DEBUG': {
+        'log': True,
+        'mode': 'binary',
+        'run_name': 'decentralized_debug' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'env_config': 'config/switzerland.yaml',
+        'model': 'DQN',
+        'target_update_rate': 5,
+        'reward_sample_rate': 1,
+        'eval_rate': 20,
+        'eval_samples': 2,
+        'num_episodes': 300,
+        'criterion':  nn.HuberLoss(),
+        'lr':  5e-3,
+        'epsilon': 0.7,
+        'epsilon_decrease': 300,
+        'epsilon_floor': 0.2,
+        'gamma': 0.7,
+        'buffer_size': 10000,
+        'batch_size': 512,
     },
     'DISTRIBUTED_BINARY': {
         'log': True,
@@ -159,10 +199,8 @@ class DistributedTrainer():
     def render_log(writer, hist, episode):
         print(f'Eval at episode {episode} Logging image')
         policy_img = Visualize.render_episode_country(hist).transpose(2, 0, 1)
-        state_img = Visualize.render_episode_fullstate(hist).transpose(2, 0, 1)
         cities_img = Visualize.render_episode_city(hist).transpose(2, 0, 1)
         writer.add_image(f'Episode/PolicyView', policy_img, episode)
-        writer.add_image(f'Episode/StateView', state_img, episode)
         writer.add_image(f'Episode/CityView', cities_img, episode)
 
     @staticmethod
@@ -212,36 +250,95 @@ class DistributedTrainer():
                               np.mean([e['conf_cost'] for e in info_hist[:-1]])/np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)
 
     @staticmethod
-    def tb_eval_log(writer, episode, params, glob_R_hist, info_hist, info):
-
-        info_hist.append(info)
-
+    def tb_eval_log(writer, episode, params, glob_R_hist, info_hist):
+        """ Reward metric computation """
         avg_R = np.mean([np.mean(e) for e in glob_R_hist])
-        avg_Var = np.var([np.mean(e) for e in glob_R_hist])
+        var_R = np.var([np.mean(e) for e in glob_R_hist])
 
+        """ System specific metric computation """
+        avg_Death = np.mean([e[-1]['parameters'][0]['dead']
+                            for e in info_hist])
+        var_Death = np.var([e[-1]['parameters'][0]['dead'] for e in info_hist])
+
+        avg_PI = np.mean([np.max([_e['parameters'][0]['infected']
+                         for _e in e]) for e in info_hist])
+        var_PI = np.var([np.max([_e['parameters'][0]['infected']
+                        for _e in e]) for e in info_hist])
+
+        avg_Recovered = np.mean(
+            [e[-1]['parameters'][0]['recovered'] for e in info_hist])
+        var_Recovered = np.var(
+            [e[-1]['parameters'][0]['recovered'] for e in info_hist])
+
+        avg_Confined = np.mean([np.sum([np.sum([int(c) for c in list(
+            e['action']['confinement'].values())]) for e in i[:-1]])*(7/9) for i in info_hist])
+        var_Confined = np.var([np.sum([np.sum([int(c) for c in list(
+            e['action']['confinement'].values())]) for e in i[:-1]])*(7/9) for i in info_hist])
+
+        avg_Isolated = np.mean([np.sum([np.sum([int(c) for c in list(
+            e['action']['isolation'].values())]) for e in i[:-1]])*(7/9) for i in info_hist])
+        var_Isolated = np.var([np.sum([np.sum([int(c) for c in list(
+            e['action']['isolation'].values())]) for e in i[:-1]])*(7/9) for i in info_hist])
+
+        avg_Hospital = np.mean([np.sum([np.sum([int(c) for c in list(
+            e['action']['hospital'].values())]) for e in i[:-1]])*(7/9) for i in info_hist])
+        var_Hospital = np.var([np.sum([np.sum([int(c) for c in list(
+            e['action']['hospital'].values())]) for e in i[:-1]])*(7/9) for i in info_hist])
+
+        avg_fVac = np.mean([np.sum([np.sum([int(c) for c in list(
+            e['action']['vaccinate'].values())]) for e in i[:-1]])*(7/9) for i in info_hist])
+        var_fVac = np.var([np.sum([np.sum([int(c) for c in list(
+            e['action']['vaccinate'].values())]) for e in i[:-1]])*(7/9) for i in info_hist])
+
+        print(f'    Eval finished with E[R]={avg_R} and Var[R]={var_R}')
+
+        """ Write the data to the logger """
         if episode % params['reward_sample_rate'] == params['reward_sample_rate']-1:
             writer.add_scalar('EvalAlg/Avg_Reward',
                               avg_R, episode)
             writer.add_scalar('EvalAlg/Var_Reward',
-                              avg_Var, episode)
+                              var_R, episode)
 
-            writer.add_scalar('EvalSystem/Deaths',
-                              info_hist[-1]['parameters'][0]['dead'], episode)
-            writer.add_scalar('EvalSystem/PeakInfection',
-                              np.max([e['parameters'][0]['infected'] for e in info_hist[:-1]]), episode)
-            writer.add_scalar('EvalSystem/Recovered',
-                              info_hist[-1]['parameters'][0]['recovered'], episode)
-            writer.add_scalar('EvalSystem/ConfinedDays',
-                              np.sum([np.sum([int(c) for c in list(e['action']['confinement'].values())]) for e in info_hist[:-1]])*(7/9), episode)
-            writer.add_scalar('EvalSystem/IsolationDays',
-                              np.sum([np.sum([int(c) for c in list(e['action']['isolation'].values())]) for e in info_hist[:-1]])*(7/9), episode)
-            writer.add_scalar('EvalSystem/AdditionalHospitalDays',
-                              np.sum([np.sum([int(c) for c in list(e['action']['hospital'].values())]) for e in info_hist[:-1]])*(7/9), episode)
-            writer.add_scalar('EvalSystem/FreeVaccinationDays',
-                              np.sum([np.sum([int(c) for c in list(e['action']['vaccinate'].values())]) for e in info_hist[:-1]])*(7/9), episode)
+            writer.add_scalar('EvalSystem/Avg_Deaths',
+                              avg_Death, episode)
+            writer.add_scalar('EvalSystem/Var_Deaths',
+                              var_Death, episode)
+
+            writer.add_scalar('EvalSystem/Avg_PeakInfection',
+                              avg_PI, episode)
+            writer.add_scalar('EvalSystem/Var_PeakInfection',
+                              var_PI, episode)
+
+            writer.add_scalar('EvalSystem/Avg_Recovered',
+                              avg_Recovered, episode)
+            writer.add_scalar('EvalSystem/Var_Recovered',
+                              var_Recovered, episode)
+
+            writer.add_scalar('EvalSystem/Avg_ConfinedDays',
+                              avg_Confined, episode)
+            writer.add_scalar('EvalSystem/Var_ConfinedDays',
+                              var_Confined, episode)
+
+            writer.add_scalar('EvalSystem/Avg_IsolationDays',
+                              avg_Isolated, episode)
+            writer.add_scalar('EvalSystem/Var_IsolationDays',
+                              var_Isolated, episode)
+
+            writer.add_scalar('EvalSystem/Avg_AdditionalHospitalDays',
+                              avg_Hospital, episode)
+            writer.add_scalar('EvalSystem/Var_AdditionalHospitalDays',
+                              var_Hospital, episode)
+
+            writer.add_scalar('EvalSystem/Avg_FreeVaccinationDays',
+                              avg_fVac, episode)
+            writer.add_scalar('EvalSystem/Var_FreeVaccinationDays',
+                              var_fVac, episode)
+        return avg_R
 
     @staticmethod
     def train(env, agents, writer, params):
+
+        max_reward = -1000
 
         for episode in range(params['num_episodes']):
 
@@ -283,11 +380,14 @@ class DistributedTrainer():
 
                 if episode % params['eval_rate'] == 0:
 
-                    DistributedTrainer._eval_model(
+                    last_reward = DistributedTrainer._eval_model(
                         agents, env, writer, episode, params, params['eval_samples'])
-
-                    torch.save(agent.model, SAVE_FOLDER +
-                               params['run_name'] + '.pkl')
+                    if last_reward > max_reward:
+                        max_reward = last_reward
+                        print(
+                            f"    New maximum reward (E[R]={last_reward}, saving weights!")
+                        torch.save(agent.model, SAVE_FOLDER +
+                                   params['run_name'] + '.pkl')
 
         return None
 
@@ -297,6 +397,7 @@ class DistributedTrainer():
             agent.targetModel.load_state_dict(agent.model.state_dict())
 
         R_container = []
+        Info_container = []
         for _it in range(iterations):
 
             finished = False
@@ -320,11 +421,12 @@ class DistributedTrainer():
                     break
 
             R_container.append(glob_R_hist)
+            Info_container.append(info_hist)
             if _it == 0:
                 DistributedTrainer.render_log(writer, info_hist, episode)
 
-        DistributedTrainer.tb_eval_log(
-            writer, episode, params, glob_R_hist, info_hist, info)
+        return DistributedTrainer.tb_eval_log(
+            writer, episode, params, R_container, Info_container)
 
     @staticmethod
     def run(params):
@@ -367,10 +469,8 @@ class CountryWideTrainer():
     def render_log(writer, hist, episode):
         print(f'Eval at episode {episode} Logging image')
         policy_img = Visualize.render_episode_country(hist).transpose(2, 0, 1)
-        state_img = Visualize.render_episode_fullstate(hist).transpose(2, 0, 1)
         cities_img = Visualize.render_episode_city(hist).transpose(2, 0, 1)
         writer.add_image(f'Episode/PolicyView', policy_img, episode)
-        writer.add_image(f'Episode/StateView', state_img, episode)
         writer.add_image(f'Episode/CityView', cities_img, episode)
 
     @staticmethod
@@ -418,39 +518,95 @@ class CountryWideTrainer():
             writer.add_scalar('RewardShaping/conf_dead_ratio',
                               np.mean([e['conf_cost'] for e in info_hist[:-1]])/np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)
 
-    def tb_eval_log(writer, episode, params, R_hist, info_hist, obs_hist,
-                    info, obs_next):
-
-        obs_hist.append(obs_next)
-        info_hist.append(info)
-
+    def tb_eval_log(writer, episode, params, R_hist, info_hist):
+        """ Reward metric computation """
         avg_R = np.mean([np.mean(e) for e in R_hist])
-        avg_Var = np.var([np.mean(e) for e in R_hist])
-        print(f'    Eval finisehd with R={avg_R} and Var={avg_Var}')
+        var_R = np.var([np.mean(e) for e in R_hist])
 
+        """ System specific metric computation """
+        avg_Death = np.mean([e[-1]['parameters'][0]['dead']
+                            for e in info_hist])
+        var_Death = np.var([e[-1]['parameters'][0]['dead'] for e in info_hist])
+
+        avg_PI = np.mean([np.max([_e['parameters'][0]['infected']
+                         for _e in e]) for e in info_hist])
+        var_PI = np.var([np.max([_e['parameters'][0]['infected']
+                        for _e in e]) for e in info_hist])
+
+        avg_Recovered = np.mean(
+            [e[-1]['parameters'][0]['recovered'] for e in info_hist])
+        var_Recovered = np.var(
+            [e[-1]['parameters'][0]['recovered'] for e in info_hist])
+
+        avg_Confined = np.mean(
+            [np.sum([int(e['action']['confinement']) for e in i[:-1]])*7 for i in info_hist])
+        var_Confined = np.var(
+            [np.sum([int(e['action']['confinement']) for e in i[:-1]])*7 for i in info_hist])
+
+        avg_Isolated = np.mean(
+            [np.sum([int(e['action']['isolation']) for e in i[:-1]])*7 for i in info_hist])
+        var_Isolated = np.var(
+            [np.sum([int(e['action']['isolation']) for e in i[:-1]])*7 for i in info_hist])
+
+        avg_Hospital = np.mean(
+            [np.sum([int(e['action']['hospital']) for e in i[:-1]])*7 for i in info_hist])
+        var_Hospital = np.var(
+            [np.sum([int(e['action']['hospital']) for e in i[:-1]])*7 for i in info_hist])
+
+        avg_fVac = np.mean([np.sum([int(e['action']['vaccinate'])
+                           for e in i[:-1]])*7 for i in info_hist])
+        var_fVac = np.var([np.sum([int(e['action']['vaccinate'])
+                          for e in i[:-1]])*7 for i in info_hist])
+
+        print(f'    Eval finished with E[R]={avg_R} and Var[R]={var_R}')
+
+        """ Write the data to the logger """
         if episode % params['reward_sample_rate'] == params['reward_sample_rate']-1:
             writer.add_scalar('EvalAlg/Avg_Reward',
                               avg_R, episode)
             writer.add_scalar('EvalAlg/Var_Reward',
-                              avg_Var, episode)
+                              var_R, episode)
 
-            writer.add_scalar('EvalSystem/Deaths',
-                              info_hist[-1]['parameters'][0]['dead'], episode)
-            writer.add_scalar('EvalSystem/PeakInfection',
-                              np.max([e['parameters'][0]['infected'] for e in info_hist[:-1]]), episode)
-            writer.add_scalar('EvalSystem/Recovered',
-                              info_hist[-1]['parameters'][0]['recovered'], episode)
-            writer.add_scalar('EvalSystem/ConfinedDays',
-                              np.sum([np.sum(e['action']['confinement']) for e in info_hist[:-1]])*7, episode)
-            writer.add_scalar('EvalSystem/IsolationDays',
-                              np.sum([np.sum(e['action']['isolation']) for e in info_hist[:-1]])*7, episode)
-            writer.add_scalar('EvalSystem/AdditionalHospitalDays',
-                              np.sum([np.sum(e['action']['hospital']) for e in info_hist[:-1]])*7, episode)
-            writer.add_scalar('EvalSystem/FreeVaccinationDays',
-                              np.sum([np.sum(e['action']['vaccinate']) for e in info_hist[:-1]])*7, episode)
+            writer.add_scalar('EvalSystem/Avg_Deaths',
+                              avg_Death, episode)
+            writer.add_scalar('EvalSystem/Var_Deaths',
+                              var_Death, episode)
+
+            writer.add_scalar('EvalSystem/Avg_PeakInfection',
+                              avg_PI, episode)
+            writer.add_scalar('EvalSystem/Var_PeakInfection',
+                              var_PI, episode)
+
+            writer.add_scalar('EvalSystem/Avg_Recovered',
+                              avg_Recovered, episode)
+            writer.add_scalar('EvalSystem/Var_Recovered',
+                              var_Recovered, episode)
+
+            writer.add_scalar('EvalSystem/Avg_ConfinedDays',
+                              avg_Confined, episode)
+            writer.add_scalar('EvalSystem/Var_ConfinedDays',
+                              var_Confined, episode)
+
+            writer.add_scalar('EvalSystem/Avg_IsolationDays',
+                              avg_Isolated, episode)
+            writer.add_scalar('EvalSystem/Var_IsolationDays',
+                              var_Isolated, episode)
+
+            writer.add_scalar('EvalSystem/Avg_AdditionalHospitalDays',
+                              avg_Hospital, episode)
+            writer.add_scalar('EvalSystem/Var_AdditionalHospitalDays',
+                              var_Hospital, episode)
+
+            writer.add_scalar('EvalSystem/Avg_FreeVaccinationDays',
+                              avg_fVac, episode)
+            writer.add_scalar('EvalSystem/Var_FreeVaccinationDays',
+                              var_fVac, episode)
+        return avg_R
 
     @staticmethod
     def train(env, agent, writer, params):
+
+        max_reward = -1000
 
         for episode in range(params['num_episodes']):
 
@@ -493,12 +649,15 @@ class CountryWideTrainer():
                 # evaluation runs are performed with epsilon = 0
                 if episode % params['eval_rate'] == 0:
 
-                    CountryWideTrainer._eval_model(
+                    last_reward = CountryWideTrainer._eval_model(
                         agent, env, writer, episode, params, params['eval_samples'])
-
-                    # save the last model
-                    torch.save(agent.model, SAVE_FOLDER +
-                               params['run_name'] + '.pkl')
+                    if last_reward > max_reward:
+                        max_reward = last_reward
+                        print(
+                            f"    New maximum reward (E[R]={last_reward}, saving weights!")
+                        # save the last model
+                        torch.save(agent.model, SAVE_FOLDER +
+                                   params['run_name'] + '.pkl')
 
         return None
 
@@ -507,6 +666,7 @@ class CountryWideTrainer():
         agent.epsilon = 0
 
         R_container = []
+        Info_container = []
         for _it in range(iterations):
 
             finished = False
@@ -525,13 +685,13 @@ class CountryWideTrainer():
                     break
 
             R_container.append(R_hist)
+            Info_container.append(info_hist)
 
             if _it == 0:
                 CountryWideTrainer.render_log(writer, info_hist, episode)
 
-        CountryWideTrainer.tb_eval_log(  # We log at each time step
-            writer, episode, params, R_container, info_hist, obs_hist,
-            info, obs_next)
+        return CountryWideTrainer.tb_eval_log(  # We log at each time step
+            writer, episode, params, R_container, Info_container)
 
     @staticmethod
     def run(params):
