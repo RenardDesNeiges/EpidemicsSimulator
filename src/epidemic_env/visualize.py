@@ -11,7 +11,7 @@ DPI = 80
 
 def fig_2_numpy(fig):
     io_buf = io.BytesIO()
-    fig.savefig(io_buf, format='raw', DPI=DPI)
+    fig.savefig(io_buf, format='raw')
     io_buf.seek(0)
     img_arr = np.reshape(np.frombuffer(io_buf.getvalue(), dtype=np.uint8),
                          newshape=(int(fig.bbox.bounds[3]), int(fig.bbox.bounds[2]), -1))
