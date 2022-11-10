@@ -13,9 +13,9 @@ SCALE = 100
 
 CONST_REWARD = 7
 DEATH_COST = 7e4
-ANN_COST = 4
+ANN_COST = 6
 ISOL_COST = 1.5
-CONF_COST = 2
+CONF_COST = 6
 VACC_COST = 0.08
 HOSP_COST = 1
 
@@ -96,7 +96,7 @@ class CountryWideEnv(gym.Env):
                 announcement += ANN_COST
             if self.get_info()['action']['isolation'] and not self.last_info['action']['isolation']:
                 announcement += ANN_COST
-            if self.get_info()['action']['vaccinate'] and not self.last_info['vaccinate']['isolation']:
+            if self.get_info()['action']['vaccinate'] and not self.last_info['action']['vaccinate']:
                 announcement += ANN_COST
             return announcement
 
