@@ -386,7 +386,7 @@ class DistributedTrainer():
                         max_reward = last_reward
                         print(
                             f"    New maximum reward (E[R]={last_reward}, saving weights!")
-                        torch.save(agent.model, SAVE_FOLDER +
+                        torch.save(agents.model, SAVE_FOLDER +
                                    params['run_name'] + '.pkl')
 
         return None
@@ -462,6 +462,7 @@ class DistributedTrainer():
 
         DistributedTrainer.train(env, agents, writer, params)
 
+    
 
 class CountryWideTrainer():
 
@@ -725,3 +726,32 @@ class CountryWideTrainer():
             writer = None
 
         CountryWideTrainer.train(env, agent, writer, params)
+        
+        
+    @staticmethod
+    def _eval(params, weights_path):
+
+        env = CountryWideEnv(params['env_config'], mode=params['mode'])
+        if hasattr(models, params['model']):
+            model = getattr(models, params['model'])
+        else:
+            print(f'Error : {params["model"]} is not a valid model name,')
+            return None
+
+        agent = Agent(env=env,
+                      model=model,
+                      criterion=params['criterion'],
+                      lr=params['lr'],
+                      epsilon=params['epsilon'],
+                      gamma=params['gamma'],
+                      buffer_size=params['buffer_size'],
+                      batch_size=params['batch_size']
+                      )
+
+        CountryWideTrainer.train(env, agent, None, params)
+
+        # TODO : Load the weights
+
+        # TODO : Run a few evaluation runs
+        
+        # TODO : return the runs as well as stats
