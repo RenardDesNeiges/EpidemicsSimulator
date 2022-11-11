@@ -104,6 +104,9 @@ class Agent():
         self.optimizer.step()
 
         return np.double(loss)
+    
+    def reset():
+        pass # Not stateful
 
     def act(self, obs):
         x = torch.Tensor(obs)
@@ -119,3 +122,36 @@ class Agent():
                     np.exp(Q_est)), Q
         else:
             return self.env.action_space.sample(), Q
+
+
+class NaiveAgent():
+
+    def __init__(self,  env,
+                 threshold=20000,
+                 confine_time=4,):
+
+        self.env = env
+        self.threshold = threshold
+        self.confine_time = confine_time
+        self.timer = 0
+    def load_model(self, savepath):
+        pass
+
+    def save_model(self, savepath):
+        pass
+
+    def optimize_model(self):
+        #This is agent is born stupid and stays stupid
+        return 0
+    
+    def reset(self,):
+        self.timer = 0
+
+    def act(self, obs):
+        if self.timer > 0:
+            self.timer -=1
+            return 1, 0
+        if obs > self.threshold:
+            self.timer = self.confine_time
+            return 1, 0
+        return 0,0

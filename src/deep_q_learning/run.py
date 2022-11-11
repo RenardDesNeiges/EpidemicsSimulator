@@ -1,6 +1,6 @@
 from epidemic_env.env import CountryWideEnv, DistributedEnv
 from epidemic_env.visualize import Visualize
-from deep_q_learning.agent import Agent
+from deep_q_learning.agent import Agent, NaiveAgent
 import deep_q_learning.model as models
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -14,6 +14,16 @@ SAVE_FOLDER = 'models/'
 
 
 PARAMS = {
+    'COUNTRY_WIDE_NAIVE': {
+        'log': True,
+        'mode': 'binary',
+        'model': 'naive',
+        'run_name': 'naive_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'env_config': 'config/switzerland.yaml',
+        'reward_sample_rate': 1,
+        'threshold':20000,
+        'confine_time':4,
+    },
     'COUNTRY_WIDE_DEBUG': {
         'log': True,
         'mode': 'binary',
@@ -729,29 +739,68 @@ class CountryWideTrainer():
         
         
     @staticmethod
-    def _eval(params, weights_path):
+    def _eval(params, weights_path, eval_iterations = 50, verbose=False):
 
         env = CountryWideEnv(params['env_config'], mode=params['mode'])
-        if hasattr(models, params['model']):
+        if params['model']=='naive':
+            pass
+        elif hasattr(models, params['model']):
             model = getattr(models, params['model'])
         else:
             print(f'Error : {params["model"]} is not a valid model name,')
             return None
 
-        agent = Agent(env=env,
-                      model=model,
-                      criterion=params['criterion'],
-                      lr=params['lr'],
-                      epsilon=params['epsilon'],
-                      gamma=params['gamma'],
-                      buffer_size=params['buffer_size'],
-                      batch_size=params['batch_size']
-                      )
+        if params['model']=='naive':
+            agent = NaiveAgent(env=env,
+                        threshold=params['threshold'],
+                        confine_time=params['confine_time'],
+                    )
+        else:
+            agent = Agent(env=env,
+                        model=model,
+                        criterion=params['criterion'],
+                        lr=params['lr'],
+                        epsilon=params['epsilon'],
+                        gamma=params['gamma'],
+                        buffer_size=params['buffer_size'],
+                        batch_size=params['batch_size']
+                    )
 
-        CountryWideTrainer.train(env, agent, None, params)
+            # Load the weights
+            agent.model = torch.load(weights_path)
+            agent.epsilon = 0 # we run in eval mode
 
-        # TODO : Load the weights
+        results = []
+        for eval_iter in range(eval_iterations):
+            
+            finished = False
+            obs, info = env.reset()
+            R_hist, obs_hist, info_hist, loss_hist, Q_hist = CountryWideTrainer.log_init(
+                obs, info)
 
-        # TODO : Run a few evaluation runs
-        
-        # TODO : return the runs as well as stats
+            while not finished:
+                if params['model']=='naive':
+                    obs = info['parameters'][0]['infected']
+                action, est_Q = agent.act(obs)
+                obs, R, finished, info = env.step(action)
+                CountryWideTrainer.log_hist(
+                    R, info, obs, 0, est_Q, R_hist,
+                    info_hist, obs_hist, loss_hist, Q_hist)
+                
+                if finished:
+                    break
+    
+            if verbose:
+                print("episode {}, avg reward = {}".format(
+                eval_iter, np.mean(R_hist)))
+
+            results.append({
+                'R_hist': R_hist, 
+                'obs_hist': obs_hist, 
+                'info_hist': info_hist, 
+                'loss_hist': loss_hist, 
+                'Q_hist': Q_hist,
+            })
+
+        return results
+

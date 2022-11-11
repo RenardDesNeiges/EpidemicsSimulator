@@ -353,3 +353,8 @@ class ModelDynamics():
             self.map.nodes[c]['i'] += di[c]*self.dt
             self.map.nodes[c]['r'] += dr[c]*self.dt
             self.map.nodes[c]['d'] += dd[c]*self.dt
+            self.map.nodes[c]['s'] = max(self.map.nodes[c]['s'],0)
+            self.map.nodes[c]['e'] = max(self.map.nodes[c]['e'],0)
+            self.map.nodes[c]['i'] = max(self.map.nodes[c]['i'],0)
+            self.map.nodes[c]['r'] = max(self.map.nodes[c]['r'],0)
+            self.map.nodes[c]['d'] = max(self.map.nodes[c]['d'],0)
