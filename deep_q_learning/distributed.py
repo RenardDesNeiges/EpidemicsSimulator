@@ -1,23 +1,34 @@
-from deep_q_learning import PARAMS
-from deep_q_learning.run import Trainer
+"""Distributed implementation of DQN, implements paralel Q-learning of N independant deep-q-learning agents.
+
+"""
+from deep_q_learning.trainer import Trainer, SAVE_FOLDER, LOG_FOLDER
 from epidemic_env.env import DistributedEnv
 from epidemic_env.visualize import Visualize
-from deep_q_learning.agent import Agent, NaiveAgent
+from deep_q_learning.agent import Agent, DQNAgent, NaiveAgent
 import deep_q_learning.model as models
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
+import torch
 from copy import deepcopy
 
-from abc import ABC, abstractmethod
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 
 class DistributedTrainer(Trainer):
+    """Distributed trainer class to train N Q-learning agents.
+    """
 
     @staticmethod
-    def render_log(writer: SummaryWriter, hist : List(Dict(str,Any)), episode):
+    def render_log(writer: SummaryWriter, hist : List[Dict[str,Any]], episode:int):
+        """Renders a plot to the tensorboard logs
+
+        Args:
+            writer (SummaryWriter): tensorboard summmary writer
+            hist (List[Dict[str,Any]]): episode history
+            episode (int): the episode number
+        """
         print(f'Eval at episode {episode} Logging image')
         policy_img = Visualize.render_episode_country(hist).transpose(2, 0, 1)
         cities_img = Visualize.render_episode_city(hist).transpose(2, 0, 1)
@@ -25,7 +36,14 @@ class DistributedTrainer(Trainer):
         writer.add_image(f'Episode/CityView', cities_img, episode)
 
     @staticmethod
-    def log_init(info, obs):
+    def log_init(info: Dict[str,Any], obs: Dict[str,torch.Tensor]):
+        """Initializes logging
+
+        Args:
+            info (Dict[str,Any]): measured system variables
+            obs (Dict[str,torch.Tensor]): last observation
+        """
+
         info_hist = [info]
         obs_hist = [obs]
         rew_hist = []
@@ -34,7 +52,7 @@ class DistributedTrainer(Trainer):
         glob_R_hist = []
         return rew_hist, info_hist, obs_hist, loss_hist, Q_hist, glob_R_hist
 
-    def log_hist(rew, info, obs, loss, _actions, _glob_R, rew_hist, info_hist, obs_hist, loss_hist, Q_hist, glob_R_hist):
+    def log_hist(rew:torch.Tensor, info:Dict[str,Any], obs:Dict[str,torch.Tensor], loss:Dict[str,torch.Tensor], _actions:Dict[str,torch.Tensor], _glob_R, rew_hist, info_hist, obs_hist, loss_hist, Q_hist, glob_R_hist):
         rew_hist.append({c: r.detach().numpy()[0, 0] for c, r in rew.items()})
         obs_hist.append(obs)
         info_hist.append(info)
@@ -157,7 +175,18 @@ class DistributedTrainer(Trainer):
         return avg_R
 
     @staticmethod
-    def train(env, agents, writer, params):
+    def train(env, agents:Dict[str,Agent], writer:SummaryWriter, params:Dict[str,Any]):
+        """Trains the agent group.
+
+        Args:
+            env (_type_): simulation environment
+            agents (_type_): dict
+            writer (_type_): _description_
+            params (_type_): _description_
+
+        Returns:
+            _type_: _description_
+        """
 
         max_reward = -1000
 
@@ -207,8 +236,9 @@ class DistributedTrainer(Trainer):
                         max_reward = last_reward
                         print(
                             f"    New maximum reward (E[R]={last_reward}, saving weights!")
-                        torch.save(agents.model, SAVE_FOLDER +
-                                   params['run_name'] + '.pkl')
+                        [torch.save(agent.model, SAVE_FOLDER +
+                                   params['run_name'] +'_'+c+ '.pkl')
+                                for (c, agent) in agents.items()]
 
         return None
 
@@ -251,7 +281,6 @@ class DistributedTrainer(Trainer):
 
     @staticmethod
     def run(params):
-
         if not params['log']:
             print(
                 'WARNING LOGGING IS NOT ENABLED, NO TB LOGS OF THE EXPERIMENT WILL BE SAVED')
@@ -265,7 +294,7 @@ class DistributedTrainer(Trainer):
             print(f'Error : {params["model"]} is not a valid model name,')
             return None
 
-        _agent = Agent(env=env,
+        _agent = DQNAgent(env=env,
                        model=model,
                        criterion=params['criterion'],
                        lr=params['lr'],

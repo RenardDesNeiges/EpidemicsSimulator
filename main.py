@@ -8,7 +8,7 @@ os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 import argparse
 
-from src.deep_q_learning.run import getTrainer, getParams
+from deep_q_learning import getTrainer, getParams
 
 DEFAULT_CONFIG = 'config/switzerland.yaml'
 

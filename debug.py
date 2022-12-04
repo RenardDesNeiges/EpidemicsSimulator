@@ -9,7 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 
-from src.deep_q_learning.run import getTrainer, getParams
+from deep_q_learning import getTrainer, getParams
 
 naive_runs = [
     ('CountryWideTrainer','COUNTRY_WIDE_NAIVE',None),
@@ -19,7 +19,7 @@ naive_runs = [
 def _eval(trainer, params_path, ev_weights, iterations):
     _trainer = getTrainer(trainer)
     _params = getParams(params_path)
-    return _trainer._eval(_params, ev_weights, eval_iterations = iterations)
+    return _trainer.evaluate(_params, ev_weights, eval_iterations = iterations)
     
 iteratons = 2
 run_logs = {

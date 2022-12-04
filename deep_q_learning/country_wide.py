@@ -1,95 +1,25 @@
-from deep_q_learning import PARAMS
+"""Centralized implementation of DQN, implements training a single agent to handle epidemic mitigation across the country.
+"""
+
+from deep_q_learning.trainer import Trainer, SAVE_FOLDER, LOG_FOLDER
 from epidemic_env.env import CountryWideEnv
 from epidemic_env.visualize import Visualize
-from deep_q_learning.agent import Agent, NaiveAgent
-from deep_q_learning.distributed import DistributedTrainer
+from deep_q_learning.agent import Agent, DQNAgent, NaiveAgent
 import deep_q_learning.model as models
+
 import torch
+
+from typing import List, Dict, Any
 from torch.utils.tensorboard import SummaryWriter
 
 import numpy as np
-from copy import deepcopy
-
-from abc import ABC, abstractmethod
-from typing import List, Dict, Any
-
-LOG_FOLDER = 'runs/'
-SAVE_FOLDER = 'models/'
-
-
-class Trainer(ABC):
-    """Trains a reinforcement learning agent in the simulated environment.
-    """
-    
-    @staticmethod
-    @abstractmethod
-    def _eval(params: Dict[str,Any], weights_path:str, eval_iterations:int = 50, verbose:bool=False)->List[Dict[str,Any]]:
-        """Loads pre-saved weights and runs an evaluation run of the model.
-
-        Args:
-            params (Dict): the run parameter dictionary
-            weights_path (str): path to the pre-saved weights file
-            eval_iterations (int, optional): How many eval episodes to run? Defaults to 50.
-            verbose (bool, optional): if true, prints detailled output to stdout. Defaults to False.
-
-        Returns:
-            List(Dict(str:Any)): a list of dictionaries conaining the performance for each eval episode
-            
-            Each dict contains the following elements:
-            'R_hist': R_hist,           <-- Reward history
-            'obs_hist': obs_hist,       <-- Observation history
-            'info_hist': info_hist,     <-- Simulation parameter history
-            'loss_hist': loss_hist,     <-- Loss history
-            'Q_hist': Q_hist,           <-- Q-value estimation history
-        """
-        
-    @staticmethod
-    @abstractmethod
-    def train(env, agents, writer, params)-> None:
-        """Trains the model
-        
-        Args:
-            agent (Agent): the agent class
-            env (CountryWideEnv): the environment class
-            writer (SummaryWriter): the tensorboard summary writer
-            episode (int): the episode number (at time of eval)
-            params (Dict): the run parameter dictionary
-            iterations (int): the number of eval iterations to perform
-        """
-
-    @staticmethod
-    @abstractmethod
-    def _eval_model(agent: Agent, env:CountryWideEnv, writer:SummaryWriter, episode:int, params:Dict[str,Any], iterations:int)-> None:
-        """Evaluates the model as trainig is performed.
-        
-        Args:
-            agent (Agent): the agent class
-            env (CountryWideEnv): the environment class
-            writer (SummaryWriter): the tensorboard summary writer
-            episode (int): the episode number (at time of eval)
-            params (Dict): the run parameter dictionary
-            iterations (int): the eval iterations to perform
-        """
-
-    @staticmethod
-    @abstractmethod
-    def run(params:Dict[str,Any])->float:
-        """Runs training.
-
-        Args:
-            params (Dict): the parameters dictionary
-
-        Returns:
-            float: the average reward
-        """
-
 
 class CountryWideTrainer(Trainer):
     """Deep-Q-learning training of a single agent for the entire country.
     """
 
     @staticmethod
-    def render_log(writer, hist, episode):
+    def _render_log(writer, hist, episode):
         print(f'Eval at episode {episode} Logging image')
         policy_img = Visualize.render_episode_country(hist).transpose(2, 0, 1)
         cities_img = Visualize.render_episode_city(hist).transpose(2, 0, 1)
@@ -97,7 +27,7 @@ class CountryWideTrainer(Trainer):
         writer.add_image(f'Episode/CityView', cities_img, episode)
 
     @staticmethod
-    def log_init(info, obs):
+    def _log_init(info, obs):
         info_hist = [info]
         obs_hist = [obs]
         rew_hist = []
@@ -105,7 +35,7 @@ class CountryWideTrainer(Trainer):
         Q_hist = []
         return rew_hist, info_hist, obs_hist, loss_hist, Q_hist
 
-    def log_hist(rew, info, obs, loss, distrib, rew_hist, info_hist, obs_hist, loss_hist, Q_hist):
+    def _log_hist(rew, info, obs, loss, distrib, rew_hist, info_hist, obs_hist, loss_hist, Q_hist):
         rew_hist.append(rew.detach().numpy()[0, 0])
         obs_hist.append(obs)
         info_hist.append(info)
@@ -113,7 +43,7 @@ class CountryWideTrainer(Trainer):
         Q_hist.append(distrib)
 
     @staticmethod
-    def tb_log(writer, episode, params, R_hist, info_hist, obs_hist,
+    def _tb_log(writer, episode, params, R_hist, info_hist, obs_hist,
                info, obs_next, loss_hist, agent, Q_hist):
 
         obs_hist.append(obs_next)
@@ -141,7 +71,7 @@ class CountryWideTrainer(Trainer):
             writer.add_scalar('RewardShaping/conf_dead_ratio',
                               np.mean([e['conf_cost'] for e in info_hist[:-1]])/np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)
 
-    def tb_eval_log(writer, episode, params, R_hist, info_hist):
+    def _tb_eval_log(writer, episode, params, R_hist, info_hist):
         """ Reward metric computation """
         avg_R = np.mean([np.mean(e) for e in R_hist])
         var_R = np.var([np.mean(e) for e in R_hist])
@@ -228,6 +158,16 @@ class CountryWideTrainer(Trainer):
 
     @staticmethod
     def train(env, agent, writer, params):
+        """Trains the model
+        
+        Args:
+            agent (Agent): the agent class
+            env (CountryWideEnv): the environment class
+            writer (SummaryWriter): the tensorboard summary writer
+            episode (int): the episode number (at time of eval)
+            params (Dict): the run parameter dictionary
+            iterations (int): the number of eval iterations to perform
+        """
 
         max_reward = -1000
 
@@ -244,7 +184,7 @@ class CountryWideTrainer(Trainer):
 
             finished = False
             obs, info = env.reset()
-            R_hist, obs_hist, info_hist, loss_hist, Q_hist = CountryWideTrainer.log_init(
+            R_hist, obs_hist, info_hist, loss_hist, Q_hist = CountryWideTrainer._log_init(
                 obs, info)
 
             while not finished:
@@ -253,7 +193,7 @@ class CountryWideTrainer(Trainer):
                 agent.memory.push(obs, action, obs_next, R)
 
                 loss = agent.optimize_model()
-                CountryWideTrainer.log_hist(
+                CountryWideTrainer._log_hist(
                     R, info, obs_next, loss, est_Q, R_hist,
                     info_hist, obs_hist, loss_hist, Q_hist)
 
@@ -265,7 +205,7 @@ class CountryWideTrainer(Trainer):
                 episode, np.mean(R_hist), agent.epsilon))
 
             if params['log']:
-                CountryWideTrainer.tb_log(  # We log at each time step
+                CountryWideTrainer._tb_log(  # We log at each time step
                     writer, episode, params, R_hist, info_hist, obs_hist,
                     info, obs_next, loss_hist, agent, Q_hist)
 
@@ -286,6 +226,16 @@ class CountryWideTrainer(Trainer):
 
     @staticmethod
     def _eval_model(agent, env, writer, episode, params, iterations):
+        """Evaluates the model as trainig is performed.
+        
+        Args:
+            agent (Agent): the agent class
+            env (CountryWideEnv): the environment class
+            writer (SummaryWriter): the tensorboard summary writer
+            episode (int): the episode number (at time of eval)
+            params (Dict): the run parameter dictionary
+            iterations (int): the eval iterations to perform
+        """
         agent.epsilon = 0
 
         R_container = []
@@ -294,13 +244,13 @@ class CountryWideTrainer(Trainer):
 
             finished = False
             obs, info = env.reset()
-            R_hist, obs_hist, info_hist, _, Q_hist = CountryWideTrainer.log_init(
+            R_hist, obs_hist, info_hist, _, Q_hist = CountryWideTrainer._log_init(
                 obs, info)
             while not finished:
                 action, est_Q = agent.act(obs)
                 obs_next, R, finished, info = env.step(action)
                 agent.memory.push(obs, action, obs_next, R)
-                CountryWideTrainer.log_hist(
+                CountryWideTrainer._log_hist(
                     R, info, obs_next, 0, est_Q,
                     R_hist, info_hist, obs_hist, [], Q_hist)
                 obs = obs_next
@@ -311,13 +261,21 @@ class CountryWideTrainer(Trainer):
             Info_container.append(info_hist)
 
             if _it == 0:
-                CountryWideTrainer.render_log(writer, info_hist, episode)
+                CountryWideTrainer._render_log(writer, info_hist, episode)
 
-        return CountryWideTrainer.tb_eval_log(  # We log at each time step
+        return CountryWideTrainer._tb_eval_log(  # We log at each time step
             writer, episode, params, R_container, Info_container)
 
     @staticmethod
     def run(params: Dict[str,Any]):
+        """Runs training according to parameters from the parameters dictionary.
+
+        Args:
+            params (Dict): the parameters dictionary
+
+        Returns:
+            float: the average reward
+        """
 
         if not params['log']:
             print(
@@ -332,7 +290,7 @@ class CountryWideTrainer(Trainer):
             print(f'Error : {params["model"]} is not a valid model name,')
             return None
 
-        agent = Agent(env=env,
+        agent = DQNAgent(env=env,
                       model=model,
                       criterion=params['criterion'],
                       lr=params['lr'],
@@ -351,7 +309,25 @@ class CountryWideTrainer(Trainer):
         
         
     @staticmethod
-    def _eval(params, weights_path, eval_iterations = 50, verbose=False):
+    def evaluate(params, weights_path, eval_iterations = 50, verbose=False):
+        """Loads pre-saved weights and runs an evaluation run of the model.
+
+        Args:
+            params (Dict): the run parameter dictionary
+            weights_path (str): path to the pre-saved weights file
+            eval_iterations (int, optional): How many eval episodes to run? Defaults to 50.
+            verbose (bool, optional): if true, prints detailled output to stdout. Defaults to False.
+
+        Returns:
+            List(Dict(str:Any)): a list of dictionaries conaining the performance for each eval episode
+            
+            Each dict contains the following elements:
+            'R_hist': R_hist,           <-- Reward history
+            'obs_hist': obs_hist,       <-- Observation history
+            'info_hist': info_hist,     <-- Simulation parameter history
+            'loss_hist': loss_hist,     <-- Loss history
+            'Q_hist': Q_hist,           <-- Q-value estimation history
+        """
 
         env = CountryWideEnv(params['env_config'], mode=params['mode'])
         if params['model']=='naive':
@@ -368,7 +344,7 @@ class CountryWideTrainer(Trainer):
                         confine_time=params['confine_time'],
                     )
         else:
-            agent = Agent(env=env,
+            agent = DQNAgent(env=env,
                         model=model,
                         criterion=params['criterion'],
                         lr=params['lr'],
@@ -387,7 +363,7 @@ class CountryWideTrainer(Trainer):
             
             finished = False
             obs, info = env.reset()
-            R_hist, obs_hist, info_hist, loss_hist, Q_hist = CountryWideTrainer.log_init(
+            R_hist, obs_hist, info_hist, loss_hist, Q_hist = CountryWideTrainer._log_init(
                 obs, info)
 
             while not finished:
@@ -395,7 +371,7 @@ class CountryWideTrainer(Trainer):
                     obs = info['parameters'][0]['infected']
                 action, est_Q = agent.act(obs)
                 obs, R, finished, info = env.step(action)
-                CountryWideTrainer.log_hist(
+                CountryWideTrainer._log_hist(
                     R, info, obs, 0, est_Q, R_hist,
                     info_hist, obs_hist, loss_hist, Q_hist)
                 
@@ -416,40 +392,3 @@ class CountryWideTrainer(Trainer):
 
         return results
 
-
-def getTrainer(name:str)->Trainer:
-    """Loads a trainer object for implementing learning on the environment.
-
-    Args:
-        name (str): name of the trainer object (valid values are "CountryWideTrainer" and "DistributedTrainer").
-
-    Raises:
-        ValueError: raised when name is invalid
-
-    Returns:
-        Trainer: the trainer object
-    """
-    if name == 'CountryWideTrainer':
-        return CountryWideTrainer
-    elif name == 'DistributedTrainer':
-        return DistributedTrainer
-    else:
-        raise ValueError('Invalid trainer object!')
-
-
-def getParams(name:str)->Dict[str,Any]:
-    """Loads parameters from the params.py file.
-
-    Args:
-        name (str): name of the parameter dict
-
-    Raises:
-        ValueError: raised whne name is invalid
-
-    Returns:
-        Dict(srt:any): the parameters dictionary
-    """
-    if name not in PARAMS.keys():
-        raise ValueError('Invalid Parameters')
-    else:
-        return PARAMS[name]

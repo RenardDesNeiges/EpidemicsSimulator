@@ -1,10 +1,25 @@
+"""Torch modules for deep-q-learning."""
+
+from torch._tensor import Tensor
 import torch.nn as nn
 
 
 class DQN(nn.Module):
     """Fully connected Q-Value estimator network."""
 
-    def __init__(self, in_dim=126, out_dim=16, dropout=0, small=False):
+    def __init__(self, in_dim:int=126, out_dim:int=16, dropout:float=0, small:bool=False)-> nn.Module:
+        """
+        ![](https://miro.medium.com/max/1400/1*Gh5PS4R_A5drl5ebd_gNrg@2x.webp)
+        
+        Args:
+            in_dim (int, optional): input dimensionality. Defaults to 126.
+            out_dim (int, optional): output dimensionality. Defaults to 16.
+            dropout (float, optional): dropout rate. Defaults to 0.
+            small (bool, optional): if true, the network has 2 layers, else it has 4. Defaults to False.
+
+        Returns:
+            nn.Module: The Deep-Q-Network.
+        """
         super().__init__()
         # Dropout modules
         self.dropout = nn.Dropout(dropout)
@@ -31,7 +46,15 @@ class DQN(nn.Module):
 
         self.fcn = nn.Sequential(*lin_layers)
 
-    def forward(self, x):
+    def forward(self, x:Tensor) -> Tensor:
+        """Forward pass through the deep-q-network module
+
+        Args:
+            x (Tensor): input
+
+        Returns:
+            Tensor: output
+        """
         x = self.fcn(x.view(x.size(0), -1))
         return x
 
@@ -40,8 +63,9 @@ class DQ_CNN(nn.Module):
     """CNN classifier network."""
 
     def __init__(self, in_dim=126, out_dim=16,  classifier_dropout=0.4, conv_dropout=0.25):
-        """CNN classifier network for MEL Spectrograms and MFCC coefficients.
-
+        """
+        ![](https://miro.medium.com/max/1184/1*V6Y8FF2qfw_ztNbs1AHXNg.webp)
+        
         Args:
             classifier_dropout (float, optional): Dropout rate for the classifier. Defaults to 0.4.
             conv_dropout (float, optional): Dropout rate for the convolutional module. Defaults to 0.25.

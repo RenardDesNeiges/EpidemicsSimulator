@@ -1,11 +1,7 @@
 #  /Users/renard/miniconda3/bin/python
-
-
 import os
-import sys
-sys.path.append('./src')
 
-from src.deep_q_learning.run import getTrainer, getParams
+from .deep_q_learning import getTrainer, getParams
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 

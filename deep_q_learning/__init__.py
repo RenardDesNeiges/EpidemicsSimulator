@@ -1,6 +1,12 @@
+"""Pytorch Deep Q Learning implementation. Written to run experiments on an epidemic containment environment (simulating covid policy).
 
-from datetime import datetime
+
+"""
+
 import torch.nn as nn
+from datetime import datetime
+from typing import Dict, Any
+from deep_q_learning.trainer import Trainer
 
 PARAMS = {
     'COUNTRY_WIDE_NAIVE': {
@@ -103,7 +109,7 @@ PARAMS = {
         'reward_sample_rate': 1,
         'eval_rate': 20,
         'eval_samples': 2,
-        'num_episodes': 300,
+        'num_episodes': 2,
         'criterion':  nn.HuberLoss(),
         'lr':  5e-3,
         'epsilon': 0.7,
@@ -175,3 +181,43 @@ PARAMS = {
     },
 }
 
+
+
+def getTrainer(name:str)->Trainer:
+    """Loads a trainer object for implementing learning on the environment.
+
+    Args:
+        name (str): name of the trainer object (valid values are "CountryWideTrainer" and "DistributedTrainer").
+
+    Raises:
+        ValueError: raised when name is invalid
+
+    Returns:
+        Trainer: the trainer object
+    """
+    if name == 'CountryWideTrainer':
+        from deep_q_learning.country_wide import CountryWideTrainer
+        return CountryWideTrainer
+    elif name == 'DistributedTrainer':
+        from deep_q_learning.distributed import DistributedTrainer
+        return DistributedTrainer
+    else:
+        raise ValueError('Invalid trainer object!')
+
+
+def getParams(name:str)->Dict[str,Any]:
+    """Loads default training parameters.
+
+    Args:
+        name (str): name of the parameter dict
+
+    Raises:
+        ValueError: raised whne name is invalid
+
+    Returns:
+        Dict(srt:any): the parameters dictionary
+    """
+    if name not in PARAMS.keys():
+        raise ValueError('Invalid Parameters')
+    else:
+        return PARAMS[name]
