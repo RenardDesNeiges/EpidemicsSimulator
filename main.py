@@ -13,7 +13,6 @@ from src.deep_q_learning.run import getTrainer, getParams
 DEFAULT_CONFIG = 'config/switzerland.yaml'
 
 if __name__ == '__main__':
-    
     parser = argparse.ArgumentParser() # create the parser object
 
     parser.add_argument("--trainer", type=str,  default='CountryWideTrainer',
@@ -27,4 +26,3 @@ if __name__ == '__main__':
     _params = getParams(args.params)
     print(f"Training the agent with trainer {args.trainer} and parameters {args.params}")
     _trainer.run(_params)
-    
