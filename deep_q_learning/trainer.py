@@ -1,6 +1,6 @@
 """Defines the abstract Trainer class and it's associated methods: train, run and evaluate.
 """
-from epidemic_env.env import CountryWideEnv
+from epidemic_env.env import Env
 from deep_q_learning.agent import Agent
 from torch.utils.tensorboard import SummaryWriter
 
@@ -44,7 +44,7 @@ class Trainer(ABC):
         
         Args:
             agent (Agent): the agent class
-            env (CountryWideEnv): the environment class
+            env (Env): the environment class
             writer (SummaryWriter): the tensorboard summary writer
             episode (int): the episode number (at time of eval)
             params (Dict): the run parameter dictionary

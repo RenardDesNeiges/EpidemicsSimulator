@@ -1,7 +1,7 @@
 """Torch modules for deep-q-learning."""
-
-from torch._tensor import Tensor
+import torch
 import torch.nn as nn
+from torch._tensor import Tensor
 
 
 class DQN(nn.Module):
@@ -58,6 +58,38 @@ class DQN(nn.Module):
         x = self.fcn(x.view(x.size(0), -1))
         return x
 
+
+
+class FactoredDQN(nn.Module):
+    """Fully connected Factored Q-Value estimator network."""
+
+    def __init__(self, in_dim:int=126, out_dim:int=16, dropout:float=0, small:bool=False)-> nn.Module:
+        """
+        ![](https://miro.medium.com/max/1400/1*Gh5PS4R_A5drl5ebd_gNrg@2x.webp)
+        
+        Args:
+            in_dim (int, optional): input dimensionality. Defaults to 126.
+            out_dim (int, optional): output dimensionality. Defaults to 16.
+            dropout (float, optional): dropout rate. Defaults to 0.
+            small (bool, optional): if true, the network has 2 layers, else it has 4. Defaults to False.
+
+        Returns:
+            nn.Module: The Deep-Q-Network.
+        """
+
+        # DQN module
+        self.dqn = DQN(in_dim,out_dim,dropout,small)
+
+    def forward(self, x:Tensor) -> Tensor:
+        """Forward pass through the deep-q-network module
+
+        Args:
+            x (Tensor): input
+
+        Returns:
+            Tensor: output
+        """
+        return torch.sum(self.dqn(x)) # yeah the entire class is written to wrap that single line
 
 class DQ_CNN(nn.Module):
     """CNN classifier network."""

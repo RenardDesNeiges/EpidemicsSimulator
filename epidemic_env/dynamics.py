@@ -1,29 +1,23 @@
+""" Handles the epidemic modeling and the parsing of a yaml configuration file.
+
+    This class doesn't "know" that it's an RL environment, this part is handled  by the wrapper class Env or DistributedEnv which handles the OpenAI gym part of the task.
+"""
+
 import yaml
 import networkx as nx
 import numpy as np
 import random as rd
-
-""" ModelDynamics class
-    Handles the epidemic modeling and the parsing of a yaml configuration file.
-    This class doesn't "know" that it's an RL environment, this part is handled 
-    by the wrapper class CountryWideEnv or DistributedEnv which handles the OpenAI gym part of the task.
-"""
+from typing import Tuple, Dict, List, Any
 
 
 class ModelDynamics():
 
-    """ Initializes the ModelDynamics class, 
-        creates a graph and sets epidemic dynamics 
-        parameters from a source yaml file
+    def __init__(self, source_file:str):
+        """Initializes the ModelDynamics class, creates a graph and sets epidemic dynamics  parameters from a source yaml file.
 
-        Parameters : 
-            source_file [string] : path to yaml initialization file
-
-        Returns : 
-            None
-    """
-
-    def __init__(self, source_file):
+        Args:
+            source_file (str): path to yaml initialization file
+        """
         # loading the parameters from the yaml file
         doc = open(source_file, 'r')
         _params = yaml.safe_load(doc)
@@ -88,16 +82,9 @@ class ModelDynamics():
 
         self.reset()
 
-    """ Resets the dynamical system variables and control parameters
-        
-        Parameters : 
-            None
-
-        Returns : 
-            None
-    """
-
     def reset(self):
+        """Resets the dynamical system variables and control parameters
+        """
         # initializing the variables
         nx.set_node_attributes(self.map, 1., "s")
         nx.set_node_attributes(self.map, 0., "e")
@@ -111,16 +98,11 @@ class ModelDynamics():
         self.extra_hospital_beds = {c: 1 for c in self.cities}
         self.vaccinate = {c: 0 for c in self.cities}
 
-    """ Draws the map on which the epidemic is simulated
-        
-        Parameters : 
-            None
-
-        Returns : 
-            None
-    """
+    
 
     def draw_map(self,):
+        """ Draws the map on which the epidemic is simulated (as a matplotlib plot).
+        """
         nx.draw(self.map,
                 with_labels=True,
                 pos=self.pos_map,
@@ -129,17 +111,31 @@ class ModelDynamics():
                 width=[self.map.edges[e]['tau']*10 for e in self.map.edges()]
                 )
 
-    """ Returns the state of the epidemic propagation 
+        """
+        Returns:
+
+        """
+        """Returns a measurement the state of the dynamical system.
+
+        Args:
+            day (int, optional): day at which the measurement is taken. Defaults to None.
+
+        Returns:
+            _type_: _description_
+        """
+    def epidemic_parameters(self, day=None)->Tuple[Dict[str,float],Dict[str,Dict[str,float]]]:
+        """ Returns the state of the epidemic propagation.
         
-        Parameters : 
-            None
+        Args:
+            day (int): day at which the measurement is taken.
 
-        Returns : 
-            total [dict] : a dict containing the total suceptible, infected, recovered and dead population
-            cities [dict] : a dict containing the suceptible, infected, recovered and dead population per city
-    """
-
-    def epidemic_parameters(self, day=None):
+        Returns:
+            Tuple[Dict[str,float],Dict[str,Dict[str,float]]]: a tuple containing
+            
+                in element 0: a dict containing the total suceptible, infected, recovered and dead population
+                
+                in element 1: a dict containing the suceptible, infected, recovered and dead population per city
+        """
         cities = {}
         suceptible_total = 0
         exposed_total = 0
@@ -188,38 +184,38 @@ class ModelDynamics():
         }
 
         return total, cities
-
-    """ Set the action variables in a given city
-    
-        Parameters :
-                act [dict] : a dict containing the following keys with boolean values
-                    confine [bool] : should the city be confined?
-                    isolate [bool] : should the city be isolated?
-                    vaccinate [bool] : should the city be vaccinated?
-                    hospital [bool] : should the city be given extra_hospital_beds?
-    
-    """
-
     def set_action(self, act, city):
+        """ Set the action variables in a given city
+        
+        
+        Args:
+            act (dict): a dict containing the following keys with boolean values
+            confine (bool): should the city be confined?
+            isolate (bool): should the city be isolated?
+            vaccinate (bool): should the city be vaccinated?
+            hospital (bool): should the city be given extra_hospital_beds?
+
+        Returns:
+            None
+        """
 
         self.c_confined[city] = self.confinement_effectiveness if act['confinement'] else 1
         self.c_isolated[city] = self.isolation_effectiveness if act['isolation'] else 1
         self.extra_hospital_beds[city] = self.extra_hospital_effectiveness if act['hospital'] else 1
         self.vaccinate[city] = self.vaccination_effectiveness if act['vaccinate'] else 0
 
-    """     Starts the epidemic (infects a given proportion 
-            of the population in one or more randomly chosen cities)
-        
-        Parameters : 
-            seed [int] : the random seed 
-            sources [int] : the number of cities we want the epidemic to start from
-            prop [float] : the propotion of the population we initialy infect in a given city
-
-        Returns : 
-            None
-    """
-
     def start_epidemic(self, seed=10, sources=1, prop=0.01):
+        """ Starts the epidemic (infects a given proportion of the population in one or more randomly chosen cities).
+        
+        
+        Args:
+            seed (int): the random seed 
+            sources (int): the number of cities we want the epidemic to start from
+            prop (float): the propotion of the population we initialy infect in a given city
+
+        Returns:
+            None
+        """
         rd.seed(seed)
 
         start_cities = rd.choices(self.cities, k=sources)
@@ -227,21 +223,19 @@ class ModelDynamics():
             self.map.nodes[c]['e'] += prop
             self.map.nodes[c]['s'] -= prop
 
-    """ Perform one environment step (a week of dynamical system simulation)
-        
-        Parameters :
-            //
+    def step(self):
+        """ Perform one environment step (a week of dynamical system simulation)
 
         Returns : 
             obs [dict] : a dict containing observation from this step
-                    the dict is structured as 
-                    total   :   list(dict(measurements)) (over 7 days)
-                    city    :   dict(list(dict(measurements))) (over 7 days, per city)
-                    pop    :    dict(int) initial per-city population (to allow normalization)
+                    
+                    
+            the dict is structured as 
+                total   :   list(dict(measurements)) (over 7 days)
+                city    :   dict(list(dict(measurements))) (over 7 days, per city)
+                pop    :    dict(int) initial per-city population (to allow normalization)
 
     """
-
-    def step(self):
         _total_history = []
         _city_history = []
         # step through a week of simulation to produce one environment step
@@ -286,6 +280,8 @@ class ModelDynamics():
     """
 
     def step_dyn(self):
+        """Perform one dynamic simulation step.
+        """
         ds = {}
         de = {}
         di = {}

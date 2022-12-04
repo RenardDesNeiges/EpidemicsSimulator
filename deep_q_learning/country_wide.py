@@ -2,9 +2,9 @@
 """
 
 from deep_q_learning.trainer import Trainer, SAVE_FOLDER, LOG_FOLDER
-from epidemic_env.env import CountryWideEnv
+from epidemic_env.env import Env
 from epidemic_env.visualize import Visualize
-from deep_q_learning.agent import Agent, DQNAgent, NaiveAgent
+from deep_q_learning.agent import Agent, DQNAgent, FactoredDQNAgent, NaiveAgent
 import deep_q_learning.model as models
 
 import torch
@@ -162,7 +162,7 @@ class CountryWideTrainer(Trainer):
         
         Args:
             agent (Agent): the agent class
-            env (CountryWideEnv): the environment class
+            env (Env): the environment class
             writer (SummaryWriter): the tensorboard summary writer
             episode (int): the episode number (at time of eval)
             params (Dict): the run parameter dictionary
@@ -230,7 +230,7 @@ class CountryWideTrainer(Trainer):
         
         Args:
             agent (Agent): the agent class
-            env (CountryWideEnv): the environment class
+            env (Env): the environment class
             writer (SummaryWriter): the tensorboard summary writer
             episode (int): the episode number (at time of eval)
             params (Dict): the run parameter dictionary
@@ -283,22 +283,27 @@ class CountryWideTrainer(Trainer):
 
         logpath = LOG_FOLDER+params['run_name']
 
-        env = CountryWideEnv(params['env_config'], mode=params['mode'])
+        env = Env(params['env_config'], mode=params['mode'])
         if hasattr(models, params['model']):
             model = getattr(models, params['model'])
         else:
             print(f'Error : {params["model"]} is not a valid model name,')
             return None
-
-        agent = DQNAgent(env=env,
-                      model=model,
-                      criterion=params['criterion'],
-                      lr=params['lr'],
-                      epsilon=params['epsilon'],
-                      gamma=params['gamma'],
-                      buffer_size=params['buffer_size'],
-                      batch_size=params['batch_size']
-                      )
+        
+        agents_params = {
+            'env': env,
+            'model': model,
+            'criterion': params['criterion'],
+            'lr': params['lr'],
+            'epsilon': params['epsilon'],
+            'gamma': params['gamma'],
+            'buffer_size': params['buffer_size'],
+            'batch_size': params['batch_size']
+        }
+        if params['agent'] == 'DQL':
+            agent = DQNAgent(**agents_params)
+        if params['agent'] == 'FactoredDQL':
+            agent = FactoredDQNAgent(**agents_params)
 
         if params['log']:
             writer = SummaryWriter(log_dir=logpath)
@@ -329,7 +334,7 @@ class CountryWideTrainer(Trainer):
             'Q_hist': Q_hist,           <-- Q-value estimation history
         """
 
-        env = CountryWideEnv(params['env_config'], mode=params['mode'])
+        env = Env(params['env_config'], mode=params['mode'])
         if params['model']=='naive':
             pass
         elif hasattr(models, params['model']):
@@ -344,15 +349,20 @@ class CountryWideTrainer(Trainer):
                         confine_time=params['confine_time'],
                     )
         else:
-            agent = DQNAgent(env=env,
-                        model=model,
-                        criterion=params['criterion'],
-                        lr=params['lr'],
-                        epsilon=params['epsilon'],
-                        gamma=params['gamma'],
-                        buffer_size=params['buffer_size'],
-                        batch_size=params['batch_size']
-                    )
+            agents_params = {
+                'env': env,
+                'model': model,
+                'criterion': params['criterion'],
+                'lr': params['lr'],
+                'epsilon': params['epsilon'],
+                'gamma': params['gamma'],
+                'buffer_size': params['buffer_size'],
+                'batch_size': params['batch_size']
+            }
+            if params['agent'] == 'DQL':
+                agent = DQNAgent(**agents_params)
+            if params['agent'] == 'FactoredDQL':
+                agent = FactoredDQNAgent(**agents_params)
 
             # Load the weights
             agent.model = torch.load(weights_path)

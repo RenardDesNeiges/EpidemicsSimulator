@@ -2,7 +2,7 @@
 
 """
 from deep_q_learning.trainer import Trainer, SAVE_FOLDER, LOG_FOLDER
-from epidemic_env.env import DistributedEnv
+from epidemic_env.distributed import DistributedEnv
 from epidemic_env.visualize import Visualize
 from deep_q_learning.agent import Agent, DQNAgent, NaiveAgent
 import deep_q_learning.model as models
