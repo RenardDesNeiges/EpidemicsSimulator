@@ -1,7 +1,8 @@
 from deep_q_learning import PARAMS
-from epidemic_env.env import CountryWideEnv, DistributedEnv
+from epidemic_env.env import CountryWideEnv
 from epidemic_env.visualize import Visualize
 from deep_q_learning.agent import Agent, NaiveAgent
+from deep_q_learning.distributed import DistributedTrainer
 import deep_q_learning.model as models
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -84,6 +85,8 @@ class Trainer(ABC):
 
 
 class CountryWideTrainer(Trainer):
+    """Deep-Q-learning training of a single agent for the entire country.
+    """
 
     @staticmethod
     def render_log(writer, hist, episode):
@@ -415,6 +418,17 @@ class CountryWideTrainer(Trainer):
 
 
 def getTrainer(name:str)->Trainer:
+    """Loads a trainer object for implementing learning on the environment.
+
+    Args:
+        name (str): name of the trainer object (valid values are "CountryWideTrainer" and "DistributedTrainer").
+
+    Raises:
+        ValueError: raised when name is invalid
+
+    Returns:
+        Trainer: the trainer object
+    """
     if name == 'CountryWideTrainer':
         return CountryWideTrainer
     elif name == 'DistributedTrainer':
@@ -423,7 +437,18 @@ def getTrainer(name:str)->Trainer:
         raise ValueError('Invalid trainer object!')
 
 
-def getParams(name):
+def getParams(name:str)->Dict[str,Any]:
+    """Loads parameters from the params.py file.
+
+    Args:
+        name (str): name of the parameter dict
+
+    Raises:
+        ValueError: raised whne name is invalid
+
+    Returns:
+        Dict(srt:any): the parameters dictionary
+    """
     if name not in PARAMS.keys():
         raise ValueError('Invalid Parameters')
     else:
