@@ -69,6 +69,7 @@ class ModelDynamics():
                                 'hospital': {c: False for c in self.cities},
                                 'vaccinate': False,
                                 }
+            self.ACTION_CARDINALITY = len(self.NULL_ACTION)
 
         except:
             raise("Invalid YAML scenario file")

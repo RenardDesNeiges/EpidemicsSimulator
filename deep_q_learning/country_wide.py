@@ -3,6 +3,7 @@
 
 from deep_q_learning.trainer import Trainer, SAVE_FOLDER, LOG_FOLDER
 from epidemic_env.env import Env
+from epidemic_env.dynamics import ModelDynamics
 from epidemic_env.visualize import Visualize
 from deep_q_learning.agent import Agent, DQNAgent, FactoredDQNAgent, NaiveAgent
 import deep_q_learning.model as models
@@ -282,8 +283,12 @@ class CountryWideTrainer(Trainer):
                 'WARNING LOGGING IS NOT ENABLED, NO TB LOGS OF THE EXPERIMENT WILL BE SAVED')
 
         logpath = LOG_FOLDER+params['run_name']
-
-        env = Env(params['env_config'], mode=params['mode'])
+        _dyn = ModelDynamics(params['env_config'])
+        env = Env(params['env_config'], 
+                  action_space=params['action_space_generator'](_dyn),
+                  observation_space=params['observation_space_generator'](_dyn),
+                  action_preprocessor=params['action_preprocessor'],
+                  observation_preprocessor=params['observation_preprocessor'])
         if hasattr(models, params['model']):
             model = getattr(models, params['model'])
         else:
@@ -334,7 +339,13 @@ class CountryWideTrainer(Trainer):
             'Q_hist': Q_hist,           <-- Q-value estimation history
         """
 
-        env = Env(params['env_config'], mode=params['mode'])
+        
+        _dyn = ModelDynamics(params['env_config'])
+        env = Env(params['env_config'], 
+                  action_space=params['action_space_generator'](_dyn),
+                  observation_space=params['observation_space_generator'](_dyn),
+                  action_preprocessor=params['action_preprocessor'],
+                  observation_preprocessor=params['observation_preprocessor'])
         if params['model']=='naive':
             pass
         elif hasattr(models, params['model']):

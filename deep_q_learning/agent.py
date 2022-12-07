@@ -110,7 +110,7 @@ class DQNAgent(Agent):
                  epsilon:float=0.5,
                  gamma:float=0.99,
                  buffer_size:int=10000,
-                 batch_size:int=64):
+                 batch_size:int=64)->None:
         """
 
         Args:
@@ -195,7 +195,7 @@ class DQNAgent(Agent):
     def reset():
         pass # Not stateful
 
-    def act(self, obs):
+    def act(self, obs:np.ndarray):
         x = torch.Tensor(obs)
 
         epsilon = self.epsilon

@@ -2,19 +2,18 @@
 
 import gym
 import torch
-from gym import spaces
-import numpy as np
+from gym.spaces import Space
 import torch
 from epidemic_env.dynamics import ModelDynamics
 from datetime import datetime as dt
 from collections import namedtuple
-from typing import Dict, Tuple, List, Any
+from typing import Dict, Tuple, Any, Callable
 
 ACTION_CONFINE = 1
 ACTION_ISOLATE = 2
 ACTION_HOSPITAL = 3
 ACTION_VACCINATE = 4
-SCALE = 100
+SCALE = 100 #TODO : abstract that constant away
 
 CONST_REWARD = 7
 DEATH_COST = 7e4
@@ -25,60 +24,49 @@ VACC_COST = 0.08
 HOSP_COST = 1
 
 
+
 RewardTuple = namedtuple('RewardTuple',['reward','dead','conf','ann','vacc','hosp','isol'])
 
 class Env(gym.Env):
     """Environment class, subclass of [gym.Env](https://www.gymlibrary.dev)."""
     metadata = {'render.modes': ['human']}
     
-    # TODO : remove cases
-    def __init__(self, source_file:str, ep_len:int=30, mode:str='binary'):
-        """
-        **TODO describe:**
+    def __init__(self,  source_file:str,
+                        action_space:Space, 
+                        observation_space:Space,
+                        ep_len:int=30, 
+                        action_preprocessor:Callable=lambda x:x, 
+                        observation_preprocessor:Callable=lambda x:x, 
+                        )->None:
+        """**TODO describe:**
         Action Spaces (per mode)
 
-        Modes 'binary', 'toggle, 'multi', 'factored' ==> TODO : Remove cases, use polymorphism
-            
-        Args:
-            source_file (str): path to the yaml file describing the dynamics environment.
-            ep_len (int, optional): Length of one episode, in months. Defaults to 30.
-            mode (str, optional): environemnt mode. Defaults to 'binary'.
+        Modes 'binary', 'toggle, 'multi', 'factored' ==> TODO : Remove cases, use preprocessing functions
+        
+        pass -> preprocessor function
+        
+        pass -> output action space
 
-        Raises:
-            Exception: _description_
+        Args:
+            source_file (str): _description_
+            ep_len (int, optional): _description_. Defaults to 30.
+            action_preprocessor (_type_, optional): _description_. Defaults to lambdax:x.
+            observation_preprocessor (_type_, optional): _description_. Defaults to lambdax:x.
+            action_space (Space, optional): _description_. Defaults to None.
+            mode (str, optional): _description_. Defaults to 'binary'.
         """
+        
         super(Env, self).__init__()
 
         self.ep_len = ep_len
         self.dyn = ModelDynamics(source_file)  # create the dynamical model
-        self.mode = mode
-
-        if self.mode == 'toggle':
-            self.action_space = spaces.Discrete(2)
-            self.observation_space = spaces.Box(
-                low=0,
-                high=1,
-                shape=(3, self.dyn.n_cities, self.dyn.env_step_length),
-                dtype=np.float16)
-        elif self.mode == 'binary':
-            self.action_space = spaces.Discrete(2)
-            self.observation_space = spaces.Box(
-                low=0,
-                high=1,
-                shape=(2, self.dyn.n_cities, self.dyn.env_step_length),
-                dtype=np.float16)
-        elif self.mode == 'multi':
-            self.action_space = spaces.Discrete(5)  # 4 actions + do nothing
-            self.observation_space = spaces.Box(
-                low=0,
-                high=1,
-                shape=(3, self.dyn.n_cities, self.dyn.env_step_length),
-                dtype=np.float16)
-        elif self.mode == 'factor':
-            raise Exception(NotImplemented)
-        else: # TODO implement factorization here
-            raise Exception(NotImplemented)
-
+    
+        self.action_space = action_space
+        self.observation_space = observation_space
+            
+        self.action_preprocessor        = action_preprocessor
+        self.observation_preprocessor   = observation_preprocessor
+        
         self.reward = torch.Tensor([0]).unsqueeze(0)
         self.reset()
 
@@ -165,7 +153,6 @@ class Env(gym.Env):
         rew = CONST_REWARD - dead - conf - ann - vacc - hosp
         return RewardTuple(torch.Tensor([rew]).unsqueeze(0), dead, conf, ann, vacc, hosp, isol)
 
-    # TODO : remove cases
     def get_obs(self, obs_dict:Dict[str,Any])->torch.Tensor:
         """Generates an observation tensor from a dictionary of observations.
 
@@ -178,78 +165,11 @@ class Env(gym.Env):
         Returns:
             torch.Tensor: the observation tensor.
         """
-        if self.mode == 'binary':
-            infected = SCALE * \
-                np.array([np.array(obs_dict['city']['infected'][c]) /
-                         obs_dict['pop'][c] for c in self.dyn.cities])
-            dead = SCALE * \
-                np.array([np.array(obs_dict['city']['dead'][c])/obs_dict['pop'][c]
-                         for c in self.dyn.cities])
-            return torch.Tensor(np.stack((infected, dead))).unsqueeze(0)
-        elif self.mode == 'toggle':
-            infected = SCALE * \
-                np.array([np.array(obs_dict['city']['infected'][c]) /
-                         obs_dict['pop'][c] for c in self.dyn.cities])
-            dead = SCALE * \
-                np.array([np.array(obs_dict['city']['dead'][c])/obs_dict['pop'][c]
-                         for c in self.dyn.cities])
-            confined = np.ones_like(
-                dead)*int((self.dyn.c_confined['Lausanne'] != 1))
-            return torch.Tensor(np.stack((infected, dead, confined))).unsqueeze(0)
-        elif self.mode == 'multi':
-            infected = SCALE * \
-                np.array([np.array(obs_dict['city']['infected'][c]) /
-                         obs_dict['pop'][c] for c in self.dyn.cities])
-            dead = SCALE * \
-                np.array([np.array(obs_dict['city']['dead'][c])/obs_dict['pop'][c]
-                         for c in self.dyn.cities])
-            self_obs = np.concatenate((
-                np.ones((1, 7)) * int((self.dyn.c_confined['Lausanne'] != 1)),
-                np.ones((1, 7)) * int((self.dyn.c_isolated['Lausanne'] != 1)),
-                np.ones((1, 7)) * int((self.dyn.vaccinate['Lausanne'] != 0)),
-                np.ones((1, 7)) *
-                int((self.dyn.extra_hospital_beds['Lausanne'] != 1)),
-                np.zeros((5, 7))
-            ))
-            return torch.Tensor(np.stack((infected, dead, self_obs))).unsqueeze(0)
-        elif self.mode == 'factor':
-            raise Exception(NotImplemented)
-        else:
-            raise Exception(NotImplemented)
-
-    # TODO : remove cases
-    def _parse_action(self, a):
-        conf = (self.dyn.c_confined['Lausanne'] != 1)
-        isol = (self.dyn.c_isolated['Lausanne'] != 1)
-        vacc = (self.dyn.vaccinate['Lausanne'] != 0)
-        hosp = (self.dyn.extra_hospital_beds['Lausanne'] != 1)
-
-        if self.mode == 'binary':
-            conf = (a == 1)
-        elif self.mode == 'toggle':
-            if a == ACTION_CONFINE:
-                conf = not conf
-        elif self.mode == 'multi':
-            if a == ACTION_CONFINE:
-                conf = not conf
-            elif a == ACTION_ISOLATE:
-                isol = not isol
-            elif a == ACTION_VACCINATE:
-                vacc = not vacc
-            elif a == ACTION_HOSPITAL:
-                hosp = not hosp
-        elif self.mode == 'factor':
-            raise Exception(NotImplemented)
-        else:
-            raise Exception(NotImplemented)
-
-        return {
-            'confinement': conf,
-            'isolation': isol,
-            'hospital': hosp,
-            'vaccinate': vacc,
-        }
-
+        return self.observation_preprocessor(obs_dict,self.dyn)
+    
+    def _parse_action(self, a):        
+        return self.action_preprocessor(a,self.dyn)
+        
     def _get_info(self)->Dict[str,Any]:
         """Grabs the dynamical system information dictionary from the simulator.
 

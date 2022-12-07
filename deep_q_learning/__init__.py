@@ -7,11 +7,16 @@ import torch.nn as nn
 from datetime import datetime
 from typing import Dict, Any
 from deep_q_learning.trainer import Trainer
+from deep_q_learning.preprocessors import *
+from gym import spaces
 
 PARAMS = {
     'COUNTRY_WIDE_NAIVE': {
         'log': True,
-        'mode': 'binary',
+        'action_space_generator': get_binary_action_space,
+        'observation_space_generator': get_binary_observation_space,
+        'action_preprocessor': binary_action_preprocessor,
+        'observation_preprocessor': binary_observation_preprocessor,
         'model': 'naive',
         'agent': 'naive',
         'run_name': 'naive_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
@@ -22,7 +27,10 @@ PARAMS = {
     },
     'COUNTRY_WIDE_DEBUG': {
         'log': True,
-        'mode': 'binary',
+        'action_space_generator': get_binary_action_space,
+        'observation_space_generator': get_binary_observation_space,
+        'action_preprocessor': binary_action_preprocessor,
+        'observation_preprocessor': binary_observation_preprocessor,
         'run_name': 'country_wide_debug_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         'env_config': 'config/switzerland.yaml',
         'model': 'DQN',
@@ -43,7 +51,10 @@ PARAMS = {
     },
     'COUNTRY_WIDE_BINARY': {
         'log': True,
-        'mode': 'binary',
+        'action_space_generator': get_binary_action_space,
+        'observation_space_generator': get_binary_observation_space,
+        'action_preprocessor': binary_action_preprocessor,
+        'observation_preprocessor': binary_observation_preprocessor,
         'run_name': 'country_wide_binary_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         'env_config': 'config/switzerland.yaml',
         'model': 'DQN',
@@ -64,7 +75,10 @@ PARAMS = {
     },
     'COUNTRY_WIDE_BINARY_TOGGLE': {
         'log': True,
-        'mode': 'toggle',
+        'action_space_generator': get_binary_action_space,
+        'observation_space_generator': get_toggle_binary_observation_space,
+        'action_preprocessor': binary_toggle_action_preprocessor,
+        'observation_preprocessor': binary_toggle_observation_preprocessor,
         'run_name': 'country_wide_binary_toggle_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         'env_config': 'config/switzerland.yaml',
         'model': 'DQN',
@@ -85,7 +99,10 @@ PARAMS = {
     },
     'COUNTRY_WIDE_MULTI_TOGGLE': {
         'log': True,
-        'mode': 'multi',
+        'action_space_generator': get_multi_action_space,
+        'observation_space_generator': get_multi_toggle_observation_space,
+        'action_preprocessor': multi_toggle_action_preprocessor,
+        'observation_preprocessor': multi_toggle_observation_preprocessor,
         'run_name': 'country_wide_multiaction_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         'env_config': 'config/switzerland.yaml',
         'model': 'DQN',
@@ -106,7 +123,10 @@ PARAMS = {
     },
     'COUNTRY_WIDE_MULTI_FACTORIZED': {
         'log': True,
-        'mode': 'multi',
+        'action_space_generator': get_multi_binary_action_space,
+        'observation_space_generator': get_multi_factored_observation_space,
+        'action_preprocessor': multi_factor_action_preprocessor,
+        'observation_preprocessor': multi_factor_observation_preprocessor,
         'run_name': 'country_wide_factorized_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         'env_config': 'config/switzerland.yaml',
         'model': 'DQN',
