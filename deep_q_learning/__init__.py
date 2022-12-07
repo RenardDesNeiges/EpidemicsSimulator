@@ -14,9 +14,9 @@ PARAMS = {
     'COUNTRY_WIDE_NAIVE': {
         'log': True,
         'action_space_generator': get_binary_action_space,
-        'observation_space_generator': get_binary_observation_space,
+        'observation_space_generator': get_observation_space,
         'action_preprocessor': binary_action_preprocessor,
-        'observation_preprocessor': binary_observation_preprocessor,
+        'observation_preprocessor': naive_observation_preprocessor,
         'model': 'naive',
         'agent': 'naive',
         'run_name': 'naive_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
@@ -28,12 +28,12 @@ PARAMS = {
     'COUNTRY_WIDE_DEBUG': {
         'log': True,
         'action_space_generator': get_binary_action_space,
-        'observation_space_generator': get_binary_observation_space,
+        'observation_space_generator': get_observation_space,
         'action_preprocessor': binary_action_preprocessor,
-        'observation_preprocessor': binary_observation_preprocessor,
+        'observation_preprocessor': naive_observation_preprocessor,
         'run_name': 'country_wide_debug_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         'env_config': 'config/switzerland.yaml',
-        'model': 'DQN',
+        'model': 'DQN', # TODO : replace the string-passing by directly loading the class here
         'agent': 'DQL',
         'target_update_rate': 5,
         'reward_sample_rate': 1,
@@ -52,9 +52,9 @@ PARAMS = {
     'COUNTRY_WIDE_BINARY': {
         'log': True,
         'action_space_generator': get_binary_action_space,
-        'observation_space_generator': get_binary_observation_space,
+        'observation_space_generator': get_observation_space,
         'action_preprocessor': binary_action_preprocessor,
-        'observation_preprocessor': binary_observation_preprocessor,
+        'observation_preprocessor': naive_observation_preprocessor,
         'run_name': 'country_wide_binary_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         'env_config': 'config/switzerland.yaml',
         'model': 'DQN',
@@ -76,7 +76,7 @@ PARAMS = {
     'COUNTRY_WIDE_BINARY_TOGGLE': {
         'log': True,
         'action_space_generator': get_binary_action_space,
-        'observation_space_generator': get_toggle_binary_observation_space,
+        'observation_space_generator': get_toggle_observation_space,
         'action_preprocessor': binary_toggle_action_preprocessor,
         'observation_preprocessor': binary_toggle_observation_preprocessor,
         'run_name': 'country_wide_binary_toggle_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
@@ -100,7 +100,7 @@ PARAMS = {
     'COUNTRY_WIDE_MULTI_TOGGLE': {
         'log': True,
         'action_space_generator': get_multi_action_space,
-        'observation_space_generator': get_multi_toggle_observation_space,
+        'observation_space_generator': get_toggle_observation_space,
         'action_preprocessor': multi_toggle_action_preprocessor,
         'observation_preprocessor': multi_toggle_observation_preprocessor,
         'run_name': 'country_wide_multiaction_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
@@ -122,14 +122,17 @@ PARAMS = {
         'batch_size': 512
     },
     'COUNTRY_WIDE_MULTI_FACTORIZED': {
+        ## Logging parameters
         'log': True,
-        'action_space_generator': get_multi_binary_action_space,
-        'observation_space_generator': get_multi_factored_observation_space,
-        'action_preprocessor': multi_factor_action_preprocessor,
-        'observation_preprocessor': multi_factor_observation_preprocessor,
         'run_name': 'country_wide_factorized_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        ## Environment parameters
+        'action_space_generator': get_multi_binary_action_space,
+        'observation_space_generator': get_observation_space,
+        'action_preprocessor': multi_factor_action_preprocessor,
+        'observation_preprocessor': naive_observation_preprocessor,
         'env_config': 'config/switzerland.yaml',
-        'model': 'DQN',
+        ## Training parameters
+        'model': 'FactoredDQN',
         'agent': 'FactoredDQL',
         'target_update_rate': 5,
         'reward_sample_rate': 1,
@@ -143,7 +146,7 @@ PARAMS = {
         'epsilon_floor': 0.2,
         'gamma': 0.9,
         'buffer_size': 10000,
-        'batch_size': 512
+        'batch_size': 512,
     },
     'DISTRIBUTED_DEBUG': {
         'log': True,

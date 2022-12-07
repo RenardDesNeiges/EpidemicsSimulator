@@ -8,6 +8,7 @@ import random
 from collections import namedtuple, deque
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Tuple
+from epidemic_env.env import Env
 # Named tuple for replay buffer storage
 Transition = namedtuple('Transition',
                         ('state', 'action', 'next_state', 'reward'))
@@ -103,7 +104,7 @@ class DQNAgent(Agent):
     
     """
 
-    def __init__(self,  env,
+    def __init__(self,  env:Env,
                  model:torch.nn,
                  criterion=nn.HuberLoss(),
                  lr:float=5e-4,
@@ -179,7 +180,7 @@ class DQNAgent(Agent):
         expected_state_action_values = (
             next_state_values * self.gamma) + reward_batch
 
-        # Compute Huber loss
+        # Compute the loss
         loss = self.criterion(state_action_values,
                               expected_state_action_values)
 
@@ -213,7 +214,7 @@ class DQNAgent(Agent):
 
 class NaiveAgent(Agent):
 
-    def __init__(self,  env,
+    def __init__(self,  env:Env,
                  threshold:int=20000,
                  confine_time:int=4,):
         """Naive Agent implementation. Gives a baseline to compare reinforcement learning agents against. 
@@ -278,10 +279,10 @@ class FactoredDQNAgent(Agent):
     Q(s,[a_1,a_2,...,a_m]) = \sum_{j\in[m]} Q_j(s,a_j)
     $$
     
-    
+    The factored DQN expects a multi-binary action space
     """
 
-    def __init__(self,  env,
+    def __init__(self,  env:Env,
                  model:torch.nn.Module,
                  criterion=nn.HuberLoss(),
                  lr:float=5e-4,
@@ -306,7 +307,7 @@ class FactoredDQNAgent(Agent):
 
         model_params = {
             'in_dim': len(env.observation_space.sample().flatten()),
-            'out_dim': env.action_space.n,
+            'out_dim': 2*env.dyn.ACTION_CARDINALITY, # we want twice as many neurons as there are binary actions
         }
         self.model = model(**model_params)
         self.targetModel = model(**model_params)
@@ -341,23 +342,23 @@ class FactoredDQNAgent(Agent):
         # Convert Batch(Transitions) -> Transition(Batch)
         batch = Transition(*zip(*transitions))
 
-        action_batch = torch.tensor([e for e in batch.action])
+        action_batch = torch.cat([torch.LongTensor(e) for e in batch.action],axis=0)
         state_batch = torch.cat(batch.state, 0)
         next_states_batch = torch.cat(batch.next_state, 0)
         reward_batch = torch.cat(batch.reward)
 
         # Compute Q(S, a) with the Q-value network
-        state_action_values = self.model(
-            state_batch).gather(1, action_batch.unsqueeze(1))
+        _,q_est,_ = self.model(state_batch)
+        state_action_values = q_est.gather(1,action_batch.unsqueeze(1))
 
         # Compute max_ap Q(Sp) with the stable target network
-        next_state_values = self.targetModel(next_states_batch).max(1)[
-            0].detach().unsqueeze(1)
+        _,q_target,_ = self.targetModel(next_states_batch)
+        next_state_values = q_target.max(1).values.unsqueeze(1)
         # Compute the expected Q values
-        expected_state_action_values = (
-            next_state_values * self.gamma) + reward_batch
+        expected_state_action_values = (next_state_values * self.gamma) \
+                                        + reward_batch.unsqueeze(1)
 
-        # Compute Huber loss
+        # Compute the loss
         loss = self.criterion(state_action_values,
                               expected_state_action_values)
 
@@ -376,14 +377,9 @@ class FactoredDQNAgent(Agent):
     def act(self, obs):
         x = torch.Tensor(obs)
 
-        epsilon = self.epsilon
-        sample = random.random()
-
-        Q_est = self.model(x)
-        Q = float(Q_est.detach().max())
-        if sample > epsilon:
-            with torch.no_grad():
-                return np.argmax(
-                    np.exp(Q_est)), Q
+        act,_,Q_est = self.model(x)
+        Q = float(Q_est.detach())
+        if random.random() > self.epsilon:
+            return act, Q
         else:
-            return self.env.action_space.sample(), Q
+            return np.array([self.env.action_space.sample()]), Q

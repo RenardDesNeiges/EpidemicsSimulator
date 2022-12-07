@@ -63,12 +63,17 @@ def multi_toggle_action_preprocessor(a:torch.Tensor, dyn:ModelDynamics):
     }
 
 def multi_factor_action_preprocessor(a:torch.Tensor, dyn:ModelDynamics):
-    raise NotImplemented
+    return {
+        'confinement':  bool(a[0,0]==1),
+        'isolation':    bool(a[0,1]==1),
+        'hospital':     bool(a[0,2]==1),
+        'vaccinate':    bool(a[0,3]==1),
+    }
 
 """Observation Preprocessors
 """
 
-def binary_observation_preprocessor(obs_dict:Dict[str,Any], dyn:ModelDynamics):
+def naive_observation_preprocessor(obs_dict:Dict[str,Any], dyn:ModelDynamics):
     infected = SCALE * \
         np.array([np.array(obs_dict['city']['infected'][c]) /
                     obs_dict['pop'][c] for c in dyn.cities])
@@ -104,41 +109,31 @@ def multi_toggle_observation_preprocessor(obs_dict:Dict[str,Any], dyn:ModelDynam
     ))
     return torch.Tensor(np.stack((infected, dead, self_obs))).unsqueeze(0)
 
-def multi_factor_observation_preprocessor(obs_dict:Dict[str,Any], dyn:ModelDynamics):
-    raise NotImplemented
-
 """Action/Observation space generators
 """
 
 def get_binary_action_space(dyn:ModelDynamics):
+    # Binary is a 2-action single dimensional action space
     return spaces.Discrete(2)
 
 def get_multi_action_space(dyn:ModelDynamics):
-    return spaces.Discrete(5)
+    # there are ACTION_CARDINALITY actions + 1 for the "do nothing case"
+    return spaces.Discrete(dyn.ACTION_CARDINALITY+1)
 
 def get_multi_binary_action_space(dyn:ModelDynamics):
-    return spaces.MultiBinary(4)
+    # Multibinary is a 2-action x ACTION_CARDINALITY,  ACTION_CARDINALITY dimensional action space
+    return spaces.MultiBinary(dyn.ACTION_CARDINALITY) 
 
-def get_binary_observation_space(dyn:ModelDynamics):
+def get_observation_space(dyn:ModelDynamics):
     return spaces.Box(
                 low=0,
                 high=1,
                 shape=(2, dyn.n_cities, dyn.env_step_length),
                 dtype=np.float16)
-
-def get_toggle_binary_observation_space(dyn:ModelDynamics):
+    
+def get_toggle_observation_space(dyn:ModelDynamics):
     return spaces.Box(
                 low=0,
                 high=1,
                 shape=(3, dyn.n_cities, dyn.env_step_length),
                 dtype=np.float16)
-
-def get_multi_toggle_observation_space(dyn:ModelDynamics):
-    return spaces.Box(
-                low=0,
-                high=1,
-                shape=(3, dyn.n_cities, dyn.env_step_length),
-                dtype=np.float16)
-
-def get_multi_factored_observation_space(dyn:ModelDynamics):
-    raise NotImplemented

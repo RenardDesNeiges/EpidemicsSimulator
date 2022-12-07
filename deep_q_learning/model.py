@@ -77,8 +77,9 @@ class FactoredDQN(nn.Module):
         Returns:
             nn.Module: The Deep-Q-Network.
         """
-
+        super().__init__()
         # DQN module
+        self.out_dim = out_dim
         self.dqn = DQN(in_dim,out_dim,dropout,small)
 
     def forward(self, x:Tensor) -> Tuple[Tensor,Tensor]:
@@ -88,10 +89,11 @@ class FactoredDQN(nn.Module):
             x (Tensor): input
 
         Returns:
-            Tensor: output
+            Tuple[Tensor,Tensor]: (actions, q_values)
         """
-        y = self.dqn(x)
-        return torch.sum(y), y 
+        y = torch.reshape(self.dqn(x), (x.shape[0],2,self.out_dim//2))
+        qmax = torch.max(y,axis=1)
+        return qmax.indices, y, torch.sum(qmax.values)
 
 class DQ_CNN(nn.Module):
     """CNN classifier network."""
