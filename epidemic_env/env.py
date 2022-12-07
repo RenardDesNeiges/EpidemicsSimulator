@@ -1,9 +1,10 @@
-"""Custom Environment that subclasses gym env"""
+"""Custom Environment that subclasses gym env."""
 
 import gym
 import torch
 from gym import spaces
 import numpy as np
+import torch
 from epidemic_env.dynamics import ModelDynamics
 from datetime import datetime as dt
 from collections import namedtuple
@@ -30,12 +31,13 @@ class Env(gym.Env):
     """Environment class, subclass of [gym.Env](https://www.gymlibrary.dev)."""
     metadata = {'render.modes': ['human']}
     
-
+    # TODO : remove cases
     def __init__(self, source_file:str, ep_len:int=30, mode:str='binary'):
         """
         **TODO describe:**
-            - Action Spaces
-            - Modes
+        Action Spaces (per mode)
+
+        Modes 'binary', 'toggle, 'multi', 'factored' ==> TODO : Remove cases, use polymorphism
             
         Args:
             source_file (str): path to the yaml file describing the dynamics environment.
@@ -72,6 +74,8 @@ class Env(gym.Env):
                 high=1,
                 shape=(3, self.dyn.n_cities, self.dyn.env_step_length),
                 dtype=np.float16)
+        elif self.mode == 'factor':
+            raise Exception(NotImplemented)
         else: # TODO implement factorization here
             raise Exception(NotImplemented)
 
@@ -159,8 +163,9 @@ class Env(gym.Env):
         isol = compute_isolation_cost()
 
         rew = CONST_REWARD - dead - conf - ann - vacc - hosp
-        return self.RewardTuple(torch.Tensor([rew]).unsqueeze(0), dead, conf, ann, vacc, hosp, isol)
+        return RewardTuple(torch.Tensor([rew]).unsqueeze(0), dead, conf, ann, vacc, hosp, isol)
 
+    # TODO : remove cases
     def get_obs(self, obs_dict:Dict[str,Any])->torch.Tensor:
         """Generates an observation tensor from a dictionary of observations.
 
@@ -207,9 +212,12 @@ class Env(gym.Env):
                 np.zeros((5, 7))
             ))
             return torch.Tensor(np.stack((infected, dead, self_obs))).unsqueeze(0)
+        elif self.mode == 'factor':
+            raise Exception(NotImplemented)
         else:
             raise Exception(NotImplemented)
 
+    # TODO : remove cases
     def _parse_action(self, a):
         conf = (self.dyn.c_confined['Lausanne'] != 1)
         isol = (self.dyn.c_isolated['Lausanne'] != 1)
@@ -230,6 +238,8 @@ class Env(gym.Env):
                 vacc = not vacc
             elif a == ACTION_HOSPITAL:
                 hosp = not hosp
+        elif self.mode == 'factor':
+            raise Exception(NotImplemented)
         else:
             raise Exception(NotImplemented)
 
@@ -262,7 +272,6 @@ class Env(gym.Env):
         }
         return info
 
-
     def step(self, action:int)->Tuple[torch.Tensor,torch.Tensor,Dict[str,Any]]:
         """Perform one environment step.
 
@@ -293,8 +302,15 @@ class Env(gym.Env):
         done = self.day >= self.ep_len
         return self.last_obs, self.reward, done, self._get_info()
 
-    # Reset the state of the environment to an initial state
-    def reset(self, seed=None):
+    def reset(self, seed:int=None)->Tuple[torch.Tensor,Dict[str,Any]]:
+        """Reset the state of the environment to an initial state
+
+        Args:
+            seed (int, optional): random seed (for reproductability). Defaults to None.
+
+        Returns:
+            Tuple[torch.Tensor,Dict[str,Any]]: a tuple containing, in element 0 the observation tensor, in element 1 the information dictionary
+        """
         self.last_action = 0
         self.day = 0
         self.dead_cost = 0
@@ -309,12 +325,11 @@ class Env(gym.Env):
         else:
             self.dyn.start_epidemic(seed)
 
-        _obs_dict = self.dyn.step()  # Eyo c'est un tuple ça
+        _obs_dict = self.dyn.step()
         self.last_obs = self.get_obs(_obs_dict)
         self.last_info = self._get_info()
         return self.last_obs, self.last_info
 
-    # Render the environment to the screen
     def render(self, mode='human', close=False):
         total, _ = self.dyn.epidemic_parameters(self.day)
         print('Epidemic state : \n   - dead: {}\n   - infected: {}'.format(

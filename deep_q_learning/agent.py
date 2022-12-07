@@ -261,7 +261,7 @@ class FactoredDQNAgent(Agent):
     
     Q-learning aims to optmizes an agent's policy by maximizing the Bellman equation:
     $$
-    Q^*(s,a) = \mathbb{E}_{s' \sim \mathcal{E}} [r+\gamma \max_{a'}Q^*(s',a')|s,a]
+    Q^*(s,a) = \mathbb{E}_{s' \sim \mathcal{E}} [r+\gamma \max_{a'}Q^*(s',a')|s,a] 
     $$
     
     In the case of Deep Q-Learning this is performed by minizing a sequence of loss functions \(L_i(\\theta_i)\) which change at each iteration \(i\) of the algorithm:
@@ -273,7 +273,7 @@ class FactoredDQNAgent(Agent):
     \\nabla L_i(\\theta_i) = \mathbb{E}_{s' \sim \epsilon} [ g'(r + \gamma \max_{a'} Q(s',a';\\theta_{i-1})-  Q(s,a;\\theta_i)) \cdot \\nabla_{\\theta_i} Q(s,a;\\theta_i)) ]
     $$
     
-    The method aims to improve performance in a setting where each action $a$ is made of \(m\) independant subactions \(\\tilde{a}_j,~j\in[m]\). Here the idea is to compute a \(Q\) function for every action combination by summing up \(Q\)-terms associated with each action by summing up said term:
+    The method aims to improve performance in a setting where each action \(a\) is made of \(m\) independant subactions \(\\tilde{a}_j,~j\in[m]\). Here the idea is to compute a \(Q\) function for every action combination by summing up \(Q\)-terms associated with each action by summing up said term:
     $$
     Q(s,[a_1,a_2,...,a_m]) = \sum_{j\in[m]} Q_j(s,a_j)
     $$

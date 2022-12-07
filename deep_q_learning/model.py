@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 from torch._tensor import Tensor
+from typing import Tuple
 
 
 class DQN(nn.Module):
@@ -80,7 +81,7 @@ class FactoredDQN(nn.Module):
         # DQN module
         self.dqn = DQN(in_dim,out_dim,dropout,small)
 
-    def forward(self, x:Tensor) -> Tensor:
+    def forward(self, x:Tensor) -> Tuple[Tensor,Tensor]:
         """Forward pass through the deep-q-network module
 
         Args:
@@ -89,7 +90,8 @@ class FactoredDQN(nn.Module):
         Returns:
             Tensor: output
         """
-        return torch.sum(self.dqn(x)) # yeah the entire class is written to wrap that single line
+        y = self.dqn(x)
+        return torch.sum(y), y 
 
 class DQ_CNN(nn.Module):
     """CNN classifier network."""
