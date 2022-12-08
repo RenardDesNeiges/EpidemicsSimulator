@@ -1,19 +1,14 @@
 # Artificial Neural Networks : Epidemic Control Project
+![epidemic growth](figures/example_epidemic_4_figs.png)
 
-Building a reinforcement learning environment for training epidemic mitigation policies. (Presumably using Q-learning.)
-
-## TODO List
-
-* Clean reward function
-* "Toggle" distributed architecture
-* D-Q-learning
-* Run with clean parameters √
+Building a reinforcement learning environment for training epidemic mitigation policies.
 
 ## Dynamical model design:
 
 ![epidemic growth](figures/switzerland.png)
 
 We model the epidemic dynamics on a graph representing cities (see Switzerland example above) with the following per-node dynamics (for city $i \in [m]$ for $m$ cities):
+
 $$
 \begin{cases}
 \dot{s}_i = \gamma_i r_i - \alpha_i s_i(i_i + \sum_{j\neq i} \tau_j i_j ) - \mu \\
@@ -41,7 +36,7 @@ the parameters are the following:
 
 all of these parameters, are sampled from normal distributions at each time step (the dynamics are stochastic) : $\alpha_i = \mathcal{N}(\bar{\alpha},\sigma_\alpha)$. This leads to epidemic processes which look like that:
 
-![epidemic growth](figures/example_epidemic_4_figs.png)
+![epidemic growth](figures/example_epidemic.png)
 
 Since $s_i + e_i +i_i + r_i +d_i = 1$ the model is a $4\cdot m$-th order model. On the Switzerland graph model that we use this correspond to a $9\cdot 4=36$'th order rate.
 
@@ -51,17 +46,8 @@ We choose parameters such that 3 dynamical model integration steps amount to one
 - the number of infected people per city (once a day)
 - the number of dead people per city (once a day)
 - the initial number of people in the country
-The hidden variables are the exposed and recovered variables. (**Should we give an approximation of the recovered ?**).
-
-
-The MDP is defined in such a way that the actor network has to make one decision per week. We define the action space as follows (not really approachable with Deep Q Learning): 
-- confinement (per city)
-- Isolation (block the in and outgoing roads, per-city)
-- pay for exceptional hospital beds (per-city)
-- subsidize vaccination (country-wide)
 
 Alternative action space any combination of :
-
 - confinement (country-wide)
 - Isolation (country-wide)
 - pay for (country-wide)
@@ -69,9 +55,17 @@ Alternative action space any combination of :
 
 The reward is computed as follows : 
 
-**TODO, describe the reward computation**
+$$
+  \begin{aligned}
+    R(s^{(t)},a^{(t)}) =  R_\text{const}
+    - A_\text{cost} - V_\text{cost} - H_\text{cost} \\
+    - \frac{1}{\text{pop}_\text{total}} 
+    \sum_{\text{city} \in \text{map}} 
+    (
+      D_\text{cost} \cdot \Delta d_\text{city}^{(t)}  +
+      C_\text{cost} \cdot c_\text{city}^{(t)} +
+      I_\text{cost} \cdot i_\text{city}^{(t)}
+    ),
+  \end{aligned}
+$$
 
-
-## Todos :
-- Write a visualization library
-- Write a deep Q learning model
