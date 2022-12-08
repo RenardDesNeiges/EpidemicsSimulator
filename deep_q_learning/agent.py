@@ -137,9 +137,7 @@ class DQNAgent(Agent):
         self.criterion = criterion
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
-
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-
         self.memory = ReplayMemory(buffer_size)
         self.batch_size = batch_size
 
@@ -206,8 +204,7 @@ class DQNAgent(Agent):
         Q = float(Q_est.detach().max())
         if sample > epsilon:
             with torch.no_grad():
-                return np.argmax(
-                    np.exp(Q_est)), Q
+                return np.argmax(Q_est), Q
         else:
             return self.env.action_space.sample(), Q
 
@@ -315,7 +312,6 @@ class FactoredDQNAgent(Agent):
         self.criterion = criterion
 
         self.optimizer = optim.Adam(self.model.parameters(), lr=lr)
-
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         self.memory = ReplayMemory(buffer_size)
@@ -349,11 +345,11 @@ class FactoredDQNAgent(Agent):
 
         # Compute Q(S, a) with the Q-value network
         _,q_est,_ = self.model(state_batch)
-        state_action_values = q_est.gather(1,action_batch.unsqueeze(1))
+        state_action_values = torch.sum(q_est.gather(1,action_batch.unsqueeze(1)),axis=2)
 
         # Compute max_ap Q(Sp) with the stable target network
         _,q_target,_ = self.targetModel(next_states_batch)
-        next_state_values = q_target.max(1).values.unsqueeze(1)
+        next_state_values = torch.sum(q_target.max(1).values.unsqueeze(1),axis=2)
         # Compute the expected Q values
         expected_state_action_values = (next_state_values * self.gamma) \
                                         + reward_batch.unsqueeze(1)

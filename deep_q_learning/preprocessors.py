@@ -31,7 +31,8 @@ def binary_toggle_action_preprocessor(a:torch.Tensor, dyn:ModelDynamics):
     vacc = (dyn.vaccinate['Lausanne'] != 0)
     hosp = (dyn.extra_hospital_beds['Lausanne'] != 1)
     
-    conf = not conf
+    if (a == 1):
+        conf = not conf
     
     return {
         'confinement': conf,

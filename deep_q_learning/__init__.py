@@ -69,9 +69,9 @@ PARAMS = {
         'epsilon': 0.7,
         'epsilon_decrease': 300,
         'epsilon_floor': 0.2,
-        'gamma': 0.7,
+        'gamma': 0.9,
         'buffer_size': 10000,
-        'batch_size': 512,
+        'batch_size': 1024,
     },
     'COUNTRY_WIDE_BINARY_TOGGLE': {
         'log': True,
@@ -93,9 +93,9 @@ PARAMS = {
         'epsilon': 0.7,
         'epsilon_decrease': 300,
         'epsilon_floor': 0.2,
-        'gamma': 0.7,
+        'gamma': 0.9,
         'buffer_size': 10000,
-        'batch_size': 512
+        'batch_size': 1024,
     },
     'COUNTRY_WIDE_MULTI_TOGGLE': {
         'log': True,
@@ -103,7 +103,7 @@ PARAMS = {
         'observation_space_generator': get_toggle_observation_space,
         'action_preprocessor': multi_toggle_action_preprocessor,
         'observation_preprocessor': multi_toggle_observation_preprocessor,
-        'run_name': 'country_wide_multiaction_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'run_name': 'country_wide_multiaction_toggle_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         'env_config': 'config/switzerland.yaml',
         'model': 'DQN',
         'agent': 'DQL',
@@ -119,12 +119,12 @@ PARAMS = {
         'epsilon_floor': 0.2,
         'gamma': 0.9,
         'buffer_size': 10000,
-        'batch_size': 512
+        'batch_size': 1024,
     },
     'COUNTRY_WIDE_MULTI_FACTORIZED': {
         ## Logging parameters
         'log': True,
-        'run_name': 'country_wide_factorized_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'run_name': 'country_wide_multiaction_factorized_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         ## Environment parameters
         'action_space_generator': get_multi_binary_action_space,
         'observation_space_generator': get_observation_space,
@@ -146,7 +146,7 @@ PARAMS = {
         'epsilon_floor': 0.2,
         'gamma': 0.9,
         'buffer_size': 10000,
-        'batch_size': 512,
+        'batch_size': 1024,
     },
     'DISTRIBUTED_DEBUG': {
         'log': True,

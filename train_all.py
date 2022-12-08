@@ -1,7 +1,7 @@
 #  /Users/renard/miniconda3/bin/python
 import os
 
-from .deep_q_learning import getTrainer, getParams
+from deep_q_learning import getTrainer, getParams
 
 os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
@@ -21,6 +21,5 @@ if __name__ == '__main__':
    run('CountryWideTrainer', 'COUNTRY_WIDE_BINARY')
    run('CountryWideTrainer', 'COUNTRY_WIDE_BINARY_TOGGLE')
    run('CountryWideTrainer', 'COUNTRY_WIDE_MULTI_TOGGLE')
-   run('DistributedTrainer', 'DISTRIBUTED_BINARY')
-   run('DistributedTrainer', 'DISTRIBUTED_BINARY_TOGGLE')
-   run('DistributedTrainer', 'DISTRIBUTED_MULTI_TOGGLE')
+   run('CountryWideTrainer', 'COUNTRY_WIDE_MULTI_FACTORIZED')
+
