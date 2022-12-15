@@ -236,7 +236,7 @@ PARAMS = {
 
 
 
-def getTrainer(name:str)->Trainer:
+def getTrainer()->Trainer:
     """Loads a trainer object for implementing learning on the environment.
 
     Args:
@@ -248,14 +248,8 @@ def getTrainer(name:str)->Trainer:
     Returns:
         Trainer: the trainer object
     """
-    if name == 'CountryWideTrainer':
-        from deep_q_learning.country_wide import CountryWideTrainer
-        return CountryWideTrainer
-    elif name == 'DistributedTrainer':
-        from deep_q_learning.distributed import DistributedTrainer
-        return DistributedTrainer
-    else:
-        raise ValueError('Invalid trainer object!')
+    from deep_q_learning.country_wide import CountryWideTrainer
+    return CountryWideTrainer
 
 
 def getParams(name:str)->Dict[str,Any]:
