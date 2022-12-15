@@ -71,32 +71,28 @@ class Env(gym.Env):
         self.reset()
 
     def compute_reward(self, obs_dict:Dict[str,Dict[str,float]])->RewardTuple:
-        """Computes the reward from an observation dictionary:
+        """Computes the reward \(R(s^{(t)},a^{(t)})\) from an observation dictionary `obs_dict`:
         
         $$
             \\begin{aligned}
-            R(s,a) =  R_\\text{const}
-            - A_\\text{cost} - V_\\text{cost} - H_\\text{cost} \\\\
-            -\sum_{i \in C} 
-            \\frac{\\text{pop}_i}{\\text{pop}_\\text{total}} 
-            (
-                D_\\text{cost} \cdot \Delta d_i  +
-                C_\\text{cost} \cdot c_i +
-                I_\\text{cost} \cdot i_i
-            ) 
-            \\\\
-            R_\\text{const}\\text{ : constant reward}\\\\
-            D_\\text{cost} \\text{ : cost of deaths}\\\\
-            C_\\text{cost} \\text{ : cost of confinement time}\\\\
-            I_\\text{cost} \\text{ : cost of isolation time}\\\\
-            A_\\text{cost} \\text{ : cost of announcing confinement or isolation} \\\\
-            V_\\text{cost} \\text{ : cost of a vaccination campaign}\\\\
-            H_\\text{cost} \\text{ : cost of adding exceptional hospital beds}\\\\
+            \\textbf{Reward} &&
+            R(s^{(t)},a^{(t)}) =  R_\\text{c}
+            - \mathcal{C}(a^{(t)})
+            - D \cdot \Delta d_\\text{city}^{(t)}\\\\
+            \\textbf{Action cost} &&
+            \mathcal{C}(a^{(t)}) =  
+            \mathcal{A}(a^{(t)}) 
+            + \mathbf{1}_{vac}  \cdot V
+            + \mathbf{1}_{hosp} \cdot H
+            + \mathbf{1}_{conf} \cdot C
+            + \mathbf{1}_{isol} \cdot I \\\\
+            \\textbf{Annoucement costs} &&
+            \mathcal{A}(a^{(t)})  = A \cdot (\mathbf{1}^+_\\text{vac} + \mathbf{1}^+_\\text{hosp} + \mathbf{1}^+_\\text{conf})
         \end{aligned}
         $$
 
         Args:
-            obs_dict (Dict[str,Dict[str,float]]): The observation.
+            obs_dict (Dict[str,Dict[str,float]]): The observation dictionary from the ModelDynamics class.
 
         Returns:
             RewardTuple: the reward and all of it's components
@@ -250,7 +246,7 @@ class Env(gym.Env):
         self.last_info = self._get_info()
         return self.last_obs, self.last_info
 
-    def render(self, mode='human', close=False):
+    def render(self, mode='human', close=False): 
         total, _ = self.dyn.epidemic_parameters(self.day)
         print('Epidemic state : \n   - dead: {}\n   - infected: {}'.format(
             total['dead'], total['infected']))
