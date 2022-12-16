@@ -11,6 +11,13 @@ from typing import Tuple, Dict, List, Any
 
 
 class ModelDynamics():
+    
+    parameters = [  'infected',
+                    'dead',
+                    'suceptible',
+                    'exposed',
+                    'recovered',
+                    'initial population']
 
     def __init__(self, source_file:str):
         """Initializes the ModelDynamics class, creates a graph and sets epidemic dynamics  parameters from a source yaml file.
@@ -184,7 +191,7 @@ class ModelDynamics():
             'initial population': total
         }
 
-        return total, cities
+        return {'total':total, 'cities':cities}
     def set_action(self, act, city):
         """ Set the action variables in a given city
         
@@ -242,7 +249,9 @@ class ModelDynamics():
         # step through a week of simulation to produce one environment step
         for i in range(self.env_step_length*self.srate):
             self.step_dyn()
-            total, cities = self.epidemic_parameters()
+            params = self.epidemic_parameters()
+            total = params['total']
+            cities = params['cities']
             _total_history.append(total)
             _city_history.append(cities)
 

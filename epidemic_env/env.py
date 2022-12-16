@@ -31,14 +31,15 @@ class Env(gym.Env):
     """Environment class, subclass of [gym.Env](https://www.gymlibrary.dev)."""
     metadata = {'render.modes': ['human']}
     
-    def __init__(self,  source_file:str,
-                        action_space:Space, 
-                        observation_space:Space,
+    def __init__(self,  dyn:ModelDynamics, 
+                        action_space:Space=None,  # TODO : Replace with a fixed dict-space
+                        observation_space:Space=None,
                         ep_len:int=30, 
-                        action_preprocessor:Callable=lambda x:x, 
-                        observation_preprocessor:Callable=lambda x:x, 
+                        action_preprocessor:Callable=lambda x,y:x, 
+                        observation_preprocessor:Callable=lambda x,y:x, 
                         )->None:
         """**TODO describe:**
+        
         Action Spaces (per mode)
 
         Modes 'binary', 'toggle, 'multi', 'factored' ==> TODO : Remove cases, use preprocessing functions
@@ -48,18 +49,17 @@ class Env(gym.Env):
         pass -> output action space
 
         Args:
-            source_file (str): _description_
-            ep_len (int, optional): _description_. Defaults to 30.
-            action_preprocessor (_type_, optional): _description_. Defaults to lambdax:x.
-            observation_preprocessor (_type_, optional): _description_. Defaults to lambdax:x.
-            action_space (Space, optional): _description_. Defaults to None.
-            mode (str, optional): _description_. Defaults to 'binary'.
-        """
-        
+            dyn (ModelDynamics): Model Dynamics environment
+            action_space (Space): action space
+            observation_space (Space): observation space
+            ep_len (int, optional): length of one episode. Defaults to 30.
+            action_preprocessor (_type_, optional): preprocesses the actions. Defaults to lambdax:x.
+            observation_preprocessor (_type_, optional): preprocesses the observations. Defaults to lambdax:x.
+        """        
         super(Env, self).__init__()
 
         self.ep_len = ep_len
-        self.dyn = ModelDynamics(source_file)  # create the dynamical model
+        self.dyn = dyn
     
         self.action_space = action_space
         self.observation_space = observation_space
@@ -180,11 +180,6 @@ class Env(gym.Env):
                 'vaccinate': (self.dyn.vaccinate['Lausanne'] != 0),
                 'hospital': (self.dyn.extra_hospital_beds['Lausanne'] != 1),
             },
-            'dead_cost': self.dead_cost,
-            'conf_cost': self.conf_cost,
-            'ann_cost': self.ann_cost,
-            'vacc_cost': self.vacc_cost,
-            'hosp_cost': self.hosp_cost,
         }
         return info
 

@@ -1,7 +1,6 @@
 """Defines the abstract Trainer class and it's associated methods: train, run and evaluate. 
 """
 from epidemic_env.env import Env
-from deep_q_learning.agent import Agent
 from epidemic_env.dynamics import ModelDynamics
 from epidemic_env.visualize import Visualize
 
@@ -118,18 +117,6 @@ class Trainer(AbstractTrainer):
                               np.mean(Q_hist), episode)
             writer.add_scalar('Alg/epsilon',
                               agent.epsilon, episode)
-            writer.add_scalar('RewardShaping/dead_cost',
-                              np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)
-            writer.add_scalar('RewardShaping/conf_cost',
-                              np.mean([e['conf_cost'] for e in info_hist[:-1]]), episode)
-            writer.add_scalar('RewardShaping/ann_cost',
-                              np.mean([e['ann_cost'] for e in info_hist[:-1]]), episode)
-            writer.add_scalar('RewardShaping/vacc_cost',
-                              np.mean([e['vacc_cost'] for e in info_hist[:-1]]), episode)
-            writer.add_scalar('RewardShaping/hosp_cost',
-                              np.mean([e['hosp_cost'] for e in info_hist[:-1]]), episode)
-            writer.add_scalar('RewardShaping/conf_dead_ratio',
-                              np.mean([e['conf_cost'] for e in info_hist[:-1]])/np.mean([e['dead_cost'] for e in info_hist[:-1]]), episode)
 
     def _tb_eval_log(writer, episode, params, R_hist, info_hist):
         """ Reward metric computation """
@@ -137,19 +124,19 @@ class Trainer(AbstractTrainer):
         var_R = np.var([np.mean(e) for e in R_hist])
 
         """ System specific metric computation """
-        avg_Death = np.mean([e[-1]['parameters'][0]['dead']
+        avg_Death = np.mean([e[-1]['parameters']['total']['dead']
                             for e in info_hist])
-        var_Death = np.var([e[-1]['parameters'][0]['dead'] for e in info_hist])
+        var_Death = np.var([e[-1]['parameters']['total']['dead'] for e in info_hist])
 
-        avg_PI = np.mean([np.max([_e['parameters'][0]['infected']
+        avg_PI = np.mean([np.max([_e['parameters']['total']['infected']
                          for _e in e]) for e in info_hist])
-        var_PI = np.var([np.max([_e['parameters'][0]['infected']
+        var_PI = np.var([np.max([_e['parameters']['total']['infected']
                         for _e in e]) for e in info_hist])
 
         avg_Recovered = np.mean(
-            [e[-1]['parameters'][0]['recovered'] for e in info_hist])
+            [e[-1]['parameters']['total']['recovered'] for e in info_hist])
         var_Recovered = np.var(
-            [e[-1]['parameters'][0]['recovered'] for e in info_hist])
+            [e[-1]['parameters']['total']['recovered'] for e in info_hist])
 
         avg_Confined = np.mean(
             [np.sum([int(e['action']['confinement']) for e in i[:-1]])*7 for i in info_hist])
@@ -343,7 +330,7 @@ class Trainer(AbstractTrainer):
 
         logpath = LOG_FOLDER+params['run_name']
         _dyn = ModelDynamics(params['env_config'])
-        env = Env(params['env_config'], 
+        env = Env(_dyn, 
                   action_space=params['action_space_generator'](_dyn),
                   observation_space=params['observation_space_generator'](_dyn),
                   action_preprocessor=params['action_preprocessor'],
@@ -400,7 +387,7 @@ class Trainer(AbstractTrainer):
 
         
         _dyn = ModelDynamics(params['env_config'])
-        env = Env(params['env_config'], 
+        env = Env(_dyn, 
                   action_space=params['action_space_generator'](_dyn),
                   observation_space=params['observation_space_generator'](_dyn),
                   action_preprocessor=params['action_preprocessor'],
@@ -448,7 +435,7 @@ class Trainer(AbstractTrainer):
 
             while not finished:
                 if params['model']=='naive':
-                    obs = info['parameters'][0]['infected']
+                    obs = info['parameters']['total']['infected']
                 action, est_Q = agent.act(obs)
                 obs, R, finished, info = env.step(action)
                 Trainer._log_hist(

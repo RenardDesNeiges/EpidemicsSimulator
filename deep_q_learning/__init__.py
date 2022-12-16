@@ -31,7 +31,7 @@ PARAMS = {
         'observation_space_generator': get_observation_space,
         'action_preprocessor': binary_action_preprocessor,
         'observation_preprocessor': naive_observation_preprocessor,
-        'run_name': 'country_wide_debug_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'run_name': 'debug_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         'env_config': 'config/switzerland.yaml',
         'model': 'DQN', # TODO : replace the string-passing by directly loading the class here
         'agent': 'DQL',
@@ -55,7 +55,7 @@ PARAMS = {
         'observation_space_generator': get_observation_space,
         'action_preprocessor': binary_action_preprocessor,
         'observation_preprocessor': naive_observation_preprocessor,
-        'run_name': 'country_wide_binary_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'run_name': 'binary_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         'env_config': 'config/switzerland.yaml',
         'model': 'DQN',
         'agent': 'DQL',
@@ -79,7 +79,7 @@ PARAMS = {
         'observation_space_generator': get_toggle_observation_space,
         'action_preprocessor': binary_toggle_action_preprocessor,
         'observation_preprocessor': binary_toggle_observation_preprocessor,
-        'run_name': 'country_wide_binary_toggle_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'run_name': 'binary_toggle_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         'env_config': 'config/switzerland.yaml',
         'model': 'DQN',
         'agent': 'DQL',
@@ -103,7 +103,7 @@ PARAMS = {
         'observation_space_generator': get_toggle_observation_space,
         'action_preprocessor': multi_toggle_action_preprocessor,
         'observation_preprocessor': multi_toggle_observation_preprocessor,
-        'run_name': 'country_wide_multiaction_toggle_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'run_name': 'multiaction_toggle_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         'env_config': 'config/switzerland.yaml',
         'model': 'DQN',
         'agent': 'DQL',
@@ -124,7 +124,7 @@ PARAMS = {
     'MULTI_FACTORIZED': {
         ## Logging parameters
         'log': True,
-        'run_name': 'country_wide_multiaction_factorized_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
+        'run_name': 'multiaction_factorized_agent' + datetime.today().strftime('%m_%d.%H_%M_%S'),
         ## Environment parameters
         'action_space_generator': get_multi_binary_action_space,
         'observation_space_generator': get_observation_space,
@@ -149,23 +149,6 @@ PARAMS = {
         'batch_size': 1024,
     },
 }
-
-
-
-def getTrainer()->AbstractTrainer:
-    """Loads a trainer object for implementing learning on the environment.
-
-    Args:
-        name (str): name of the trainer object (valid values are "Trainer" and "DistributedTrainer").
-
-    Raises:
-        ValueError: raised when name is invalid
-
-    Returns:
-        Trainer: the trainer object
-    """
-    from deep_q_learning.trainer import Trainer
-    return Trainer
 
 
 def getParams(name:str)->Dict[str,Any]:

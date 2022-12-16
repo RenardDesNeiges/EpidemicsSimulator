@@ -8,7 +8,8 @@ os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 import argparse
 
-from deep_q_learning import getTrainer, getParams
+from deep_q_learning import getParams
+from deep_q_learning.trainer import Trainer
 
 DEFAULT_CONFIG = 'config/switzerland.yaml'
 
@@ -19,7 +20,6 @@ if __name__ == '__main__':
 
     args = parser.parse_args() # get the named tuple
     
-    _trainer = getTrainer()
     _params = getParams(args.params)
     print(f"Training the agent with parameters {args.params}")
-    _trainer.run(_params)
+    Trainer.run(_params)

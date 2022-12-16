@@ -73,7 +73,7 @@ class Visualize():
         plt.close('all')
 
         infection_hist = pd.DataFrame(
-            [e['parameters'][0] for e in info_hist[0:-1]])
+            [e['parameters']['total'] for e in info_hist[0:-1]])
         confinement_hist = pd.DataFrame(
             [e['action']['confinement'] for e in info_hist[0:-1]])
         isolation_hist = pd.DataFrame(
@@ -119,13 +119,13 @@ class Visualize():
 
         plt.close('all')
 
-        cities = list(info_hist[0]['parameters'][1].keys())
+        cities = list(info_hist[0]['parameters']['cities'].keys())
         fig, ax = plt.subplots(len(cities), 1, figsize=(9, 9))
 
         for _id, city in enumerate(cities):
             c_infected = np.array(
-                [e['parameters'][1][city]['infected'] for e in info_hist[0:-1]])
-            c_dead = np.array([e['parameters'][1][city]['dead']
+                [e['parameters']['cities'][city]['infected'] for e in info_hist[0:-1]])
+            c_dead = np.array([e['parameters']['cities'][city]['dead']
                               for e in info_hist[0:-1]])
 
             ax[_id].plot(c_infected)
