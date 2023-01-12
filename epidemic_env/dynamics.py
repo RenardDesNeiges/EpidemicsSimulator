@@ -225,6 +225,7 @@ class ModelDynamics():
             None
         """
         rd.seed(seed)
+        np.random.seed(seed)
 
         start_cities = rd.choices(self.cities, k=sources)
         for c in start_cities:

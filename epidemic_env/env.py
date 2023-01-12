@@ -232,7 +232,7 @@ class Env(gym.Env):
         self.isol = 0
         self.dyn.reset()
         if seed is None:
-            self.dyn.start_epidemic(dt.now())
+            self.dyn.start_epidemic(int(dt.now().second))
         else:
             self.dyn.start_epidemic(seed)
 
