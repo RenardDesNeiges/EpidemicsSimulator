@@ -8,6 +8,34 @@ import networkx as nx
 import numpy as np
 import random as rd
 from typing import Tuple, Dict, List, Any
+from dataclasses import dataclass
+
+@dataclass
+class Parameters():
+    """Contains simulation parameters for either a city or the country on a given day
+    """
+    day: int
+    suceptible: int
+    exposed: int
+    infected: int
+    recovered: int
+    dead: int
+    initial_population: int
+
+@dataclass
+class Observables():
+    """Observation class, contains all observable variables from either the city or the country
+    """
+    infected: List[int]
+    dead: List[int]
+
+@dataclass
+class Observation():
+    """Observation class, contains all fields returned when observing the environment
+    """
+    pop: Dict[str,float] # Contains the original population of each city
+    city: Dict[str, Observables]
+    total: Observables
 
 
 class ModelDynamics():
@@ -17,7 +45,7 @@ class ModelDynamics():
                     'suceptible',
                     'exposed',
                     'recovered',
-                    'initial population']
+                    'initial_population']
 
     def __init__(self, source_file:str):
         """Initializes the ModelDynamics class, creates a graph and sets epidemic dynamics  parameters from a source yaml file.
@@ -119,18 +147,6 @@ class ModelDynamics():
                 width=[self.map.edges[e]['tau']*10 for e in self.map.edges()]
                 )
 
-        """
-        Returns:
-
-        """
-        """Returns a measurement the state of the dynamical system.
-
-        Args:
-            day (int, optional): day at which the measurement is taken. Defaults to None.
-
-        Returns:
-            _type_: _description_
-        """
     def epidemic_parameters(self, day=None)->Tuple[Dict[str,float],Dict[str,Dict[str,float]]]:
         """ Returns the state of the epidemic propagation.
         
@@ -170,28 +186,28 @@ class ModelDynamics():
             dead_total += dead
             total += self.map.nodes[c]['pop']
 
-            city = {
-                'day': day,
-                'suceptible': suceptible,
-                'exposed': exposed,
-                'infected': infected,
-                'recovered': recovered,
-                'dead': dead,
-                'initial population': self.map.nodes[c]['pop']
-            }
-            cities[c] = city
+            cities[c] = Parameters(
+                day=day,
+                suceptible=suceptible,
+                exposed=exposed,
+                infected=infected,
+                recovered=recovered,
+                dead=dead,
+                initial_population=self.map.nodes[c]['pop'],
+            )
 
-        total = {
-            'day': day,
-            'suceptible': suceptible_total,
-            'exposed': exposed_total,
-            'infected': infected_total,
-            'recovered': recovered_total,
-            'dead': dead_total,
-            'initial population': total
-        }
+        total = Parameters(
+            day=day,
+            suceptible=suceptible_total,
+            exposed=exposed_total,
+            infected=infected_total,
+            recovered=recovered_total,
+            dead=dead_total,
+            initial_population=total
+        )
 
         return {'total':total, 'cities':cities}
+    
     def set_action(self, act, city):
         """ Set the action variables in a given city
         
@@ -212,6 +228,16 @@ class ModelDynamics():
         self.extra_hospital_beds[city] = self.extra_hospital_effectiveness if act['hospital'] else 1
         self.vaccinate[city] = self.vaccination_effectiveness if act['vaccinate'] else 0
 
+    def get_action(self,):
+        _c = list(self.c_confined.keys())[0]
+        return {'confinement': (self.c_confined[_c] != 1),
+        'isolation': (self.c_isolated[_c] != 1),
+        'vaccinate': (self.vaccinate[_c] != 0),
+        'hospital': (self.extra_hospital_beds[_c] != 1),
+        }
+        
+    
+    
     def start_epidemic(self, seed=10, sources=1, prop=0.01):
         """ Starts the epidemic (infects a given proportion of the population in one or more randomly chosen cities).
         
@@ -250,36 +276,27 @@ class ModelDynamics():
         # step through a week of simulation to produce one environment step
         for i in range(self.env_step_length*self.srate):
             self.step_dyn()
-            params = self.epidemic_parameters()
-            total = params['total']
-            cities = params['cities']
-            _total_history.append(total)
-            _city_history.append(cities)
+            params = self.epidemic_parameters(day=i/self.srate)
+            _total_history.append(params['total'])
+            _city_history.append(params['cities'])
 
         # output observations
-        _total_infected = [t['infected']
-                           for t in _total_history][0::self.srate]
-        _total_dead = [t['dead'] for t in _total_history][0::self.srate]
-        _total = {
-            'infected':    _total_infected,
-            'dead':        _total_dead,
-        }
-        _city_infected = {c: (
-            [t[c]['infected'] for t in _city_history][0::self.srate]) for c in self.cities}
-        _city_dead = {c: ([t[c]['dead'] for t in _city_history]
-                          [0::self.srate]) for c in self.cities}
-        _city = {
-            'infected':    _city_infected,
-            'dead':        _city_dead,
-        }
+        _total = Observables(
+            infected = [t.infected for t in _total_history][0::self.srate], 
+            dead =  [t.dead for t in _total_history][0::self.srate],
+        )
+        _city = {c:Observables(
+                    infected=[t[c].infected for t in _city_history][0::self.srate], 
+                    dead=[t[c].dead for t in _city_history][0::self.srate], 
+                ) for c in self.cities}
+            
         _pop = {c: self.map.nodes[c]['pop'] for c in self.cities}
-
-        obs = {
-            'total':   _total,
-            'city':   _city,
-            'pop':   _pop
-        }
-        return obs
+        
+        return Observation(
+            pop=_pop,
+            city=_city,
+            total=_total,
+        )
 
     """ Step forward in the epidemic dynamics
         

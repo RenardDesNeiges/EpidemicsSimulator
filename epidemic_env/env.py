@@ -4,10 +4,11 @@ import gym
 import torch
 from gym.spaces import Space
 import torch
-from epidemic_env.dynamics import ModelDynamics
+from epidemic_env.dynamics import ModelDynamics, Parameters, Observables, Observation
 from datetime import datetime as dt
 from collections import namedtuple
-from typing import Dict, Tuple, Any, Callable
+from typing import Dict, List, Tuple, Any, Callable
+from dataclasses import dataclass
 
 ACTION_CONFINE = 1
 ACTION_ISOLATE = 2
@@ -16,17 +17,24 @@ ACTION_VACCINATE = 4
 SCALE = 100 #TODO : abstract that constant away
 
 CONST_REWARD = 7
-DEATH_COST = 7e4
+DEATH_COST = 1.4e4
 ANN_COST = 6
 ISOL_COST = 1.5
 CONF_COST = 6
 VACC_COST = 0.08
 HOSP_COST = 1
 
-
-
 RewardTuple = namedtuple('RewardTuple',['reward','dead','conf','ann','vacc','hosp','isol'])
 
+
+@dataclass
+class  Log():
+    """Contains a log of the sim parameters for the entire country on a given day d
+    """
+    total: Parameters
+    city: Dict[str,Parameters]
+    action: Dict[str,bool]
+    
 class Env(gym.Env):
     """Environment class, subclass of [gym.Env](https://www.gymlibrary.dev)."""
     metadata = {'render.modes': ['human']}
@@ -70,8 +78,8 @@ class Env(gym.Env):
         self.reward = torch.Tensor([0]).unsqueeze(0)
         self.reset()
 
-    def compute_reward(self, obs_dict:Dict[str,Dict[str,float]])->RewardTuple:
-        """Computes the reward \(R(s^{(t)},a^{(t)})\) from an observation dictionary `obs_dict`:
+    def compute_reward(self, obs:Observation)->RewardTuple:
+        """Computes the reward \(R(s^{(t)},a^{(t)})\) from an observation dictionary `obs`:
         
         $$
             \\begin{aligned}
@@ -92,7 +100,7 @@ class Env(gym.Env):
         $$
 
         Args:
-            obs_dict (Dict[str,Dict[str,float]]): The observation dictionary from the ModelDynamics class.
+            obs (Observation): The observation from the ModelDynamics class.
 
         Returns:
             RewardTuple: the reward and all of it's components
@@ -100,13 +108,12 @@ class Env(gym.Env):
         def compute_death_cost():
             dead = 0
             for city in self.dyn.cities:
-                if len(obs_dict['city']['dead'][city]) > 1:
+                if len(obs.city[city].dead) > 1:
                     dead += DEATH_COST * \
-                        (obs_dict['city']['dead'][city][-1] - obs_dict['city']
-                         ['dead'][city][-2]) / (self.dyn.total_pop)
+                        (obs.city[city].dead[-1] - obs.city[city].dead[0]) / (self.dyn.total_pop) # Not great but close enough
                 else:
                     dead += DEATH_COST * \
-                        obs_dict['city']['dead'][city][-1] / \
+                        obs.city[city].dead[-1] / \
                         (self.dyn.total_pop)
             return dead
         def compute_isolation_cost():
@@ -114,22 +121,22 @@ class Env(gym.Env):
             for city in self.dyn.cities:
                 isol += ISOL_COST * \
                     int(self.dyn.c_isolated[city] == self.dyn.isolation_effectiveness) * \
-                    obs_dict['pop'][city] / (self.dyn.total_pop)
+                    obs.pop[city] / (self.dyn.total_pop)
             return isol
         def compute_confinement_cost():
             conf = 0
             for city in self.dyn.cities:
                 conf += CONF_COST * \
                     int(self.dyn.c_confined[city] == self.dyn.confinement_effectiveness) * \
-                    obs_dict['pop'][city] / (self.dyn.total_pop)
+                    obs.pop[city] / (self.dyn.total_pop)
             return conf
         def compute_annoucement_cost():
             announcement = 0
-            if self._get_info()['action']['confinement'] and not self.last_info['action']['confinement']:
+            if self._get_info().action['confinement'] and not self.last_info.action['confinement']:
                 announcement += ANN_COST
-            if self._get_info()['action']['isolation'] and not self.last_info['action']['isolation']:
+            if self._get_info().action['isolation'] and not self.last_info.action['isolation']:
                 announcement += ANN_COST
-            if self._get_info()['action']['vaccinate'] and not self.last_info['action']['vaccinate']:
+            if self._get_info().action['vaccinate'] and not self.last_info.action['vaccinate']:
                 announcement += ANN_COST
             return announcement
         def compute_vaccination_cost():
@@ -149,11 +156,11 @@ class Env(gym.Env):
         rew = CONST_REWARD - dead - conf - ann - vacc - hosp
         return RewardTuple(torch.Tensor([rew]).unsqueeze(0), dead, conf, ann, vacc, hosp, isol)
 
-    def get_obs(self, obs_dict:Dict[str,Any])->torch.Tensor:
+    def get_obs(self, obs:Observation)->torch.Tensor:
         """Generates an observation tensor from a dictionary of observations.
 
         Args:
-            obs_dict (Dict[Any]): the observations dictionary.
+            obs (Observation): the observations dictionary.
 
         Raises:
             Exception: when the mode is incorrectly implemented.
@@ -161,7 +168,7 @@ class Env(gym.Env):
         Returns:
             torch.Tensor: the observation tensor.
         """
-        return self.observation_preprocessor(obs_dict,self.dyn)
+        return self.observation_preprocessor(obs,self.dyn)
     
     def _parse_action(self, a):        
         return self.action_preprocessor(a,self.dyn)
@@ -172,18 +179,19 @@ class Env(gym.Env):
         Returns:
             Dict[str,Any]: The information dictionary.
         """
-        info = {
-            'parameters': self.dyn.epidemic_parameters(self.day),
-            'action': {
+        _params = self.dyn.epidemic_parameters(self.day)
+        return Log(
+            total=_params['total'],
+            city=_params['cities'],
+            action={
                 'confinement': (self.dyn.c_confined['Lausanne'] != 1),
                 'isolation': (self.dyn.c_isolated['Lausanne'] != 1),
                 'vaccinate': (self.dyn.vaccinate['Lausanne'] != 0),
                 'hospital': (self.dyn.extra_hospital_beds['Lausanne'] != 1),
             },
-        }
-        return info
+        )
 
-    def step(self, action:int)->Tuple[torch.Tensor,torch.Tensor,Dict[str,Any]]:
+    def step(self, action:int)->Tuple[torch.Tensor,torch.Tensor,Observation]:
         """Perform one environment step.
 
         Args:
@@ -198,10 +206,10 @@ class Env(gym.Env):
         self.last_info = self._get_info()
         for c in self.dyn.cities:
             self.dyn.set_action(self._parse_action(action), c)
-        _obs_dict = self.dyn.step()
-        self.last_obs = self.get_obs(_obs_dict)
+        _obs = self.dyn.step()
+        self.last_obs = self.get_obs(_obs)
 
-        r = self.compute_reward(_obs_dict)
+        r = self.compute_reward(_obs)
         self.reward     = r.reward
         self.dead_cost  = r.dead
         self.conf_cost  = r.conf
@@ -236,14 +244,14 @@ class Env(gym.Env):
         else:
             self.dyn.start_epidemic(seed)
 
-        _obs_dict = self.dyn.step()
-        self.last_obs = self.get_obs(_obs_dict)
+        _obs = self.dyn.step() # This obs is Obs class
+        self.last_obs = self.get_obs(_obs) # This obs might be tensorized
         self.last_info = self._get_info()
         return self.last_obs, self.last_info
 
     def render(self, mode='human', close=False): 
-        total, _ = self.dyn.epidemic_parameters(self.day)
+        epidemic_dict = self.dyn.epidemic_parameters(self.day)
         print('Epidemic state : \n   - dead: {}\n   - infected: {}'.format(
-            total['dead'], total['infected']))
+            epidemic_dict['total']['dead'], epidemic_dict['total']['infected']))
 
 
