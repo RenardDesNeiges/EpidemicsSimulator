@@ -201,7 +201,7 @@ class Env(gym.Env):
             Tuple[torch.Tensor,torch.Tensor,Dict[str,Any]]: A tuple containing
             - in element 1
         """
-        self.day += 1
+        self.day += self.dyn.env_step_length
         self.last_action = action
         self.last_info = self._get_info()
         for c in self.dyn.cities:
@@ -218,7 +218,7 @@ class Env(gym.Env):
         self.hosp_cost  = r.hosp
         self.isol       = r.isol
 
-        done = self.day >= self.ep_len
+        done = self.day >= self.ep_len*self.dyn.env_step_length
         return self.last_obs, self.reward, done, self._get_info()
 
     def reset(self, seed:int=None)->Tuple[torch.Tensor,Dict[str,Any]]:
