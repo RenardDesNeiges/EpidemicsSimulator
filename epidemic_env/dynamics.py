@@ -150,7 +150,7 @@ class ModelDynamics():
     def epidemic_parameters(self, day=None)->Tuple[Dict[str,float],Dict[str,Dict[str,float]]]:
         """ Returns the state of the epidemic propagation.
         
-        Args:
+        Args:u
             day (int): day at which the measurement is taken.
 
         Returns:

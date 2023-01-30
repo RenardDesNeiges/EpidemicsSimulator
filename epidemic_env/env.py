@@ -17,7 +17,7 @@ ACTION_VACCINATE = 4
 SCALE = 100 #TODO : abstract that constant away
 
 CONST_REWARD = 7
-DEATH_COST = 1.4e4
+DEATH_COST = 1.3e4 
 ANN_COST = 6
 ISOL_COST = 1.5
 CONF_COST = 6
